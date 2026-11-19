@@ -3161,22 +3161,19 @@
   },
   "files": {
     "app.R": {
-      "checksum": "eeb9a1e1bba2d338e4d96ebb452d3c3e"
+      "checksum": "728e7ffbf28496ee3f6b7c370b0fbb47"
     },
     "R/deployment.R": {
       "checksum": "27e8477909a1dddc70772b945b08e62d"
     },
     "R/mod_analysis_vars.R": {
-      "checksum": "5e3222ffc9fcd2420d5ef1fb7495d971"
-    },
-    "R/mod_choices.R": {
-      "checksum": "4aa26351fa8e1035a21e0f40c60ef761"
+      "checksum": "f079b978d9c9ffdef96ec7a0c2e0b313"
     },
     "R/mod_disaggregation.R": {
-      "checksum": "2ab3bc33963697c5404c8c51e5dc6958"
+      "checksum": "10957df09f6e311a25f180282816d5c2"
     },
-    "R/mod_settings.R": {
-      "checksum": "19c16c5ec1469fa99c0b637ca8311348"
+    "R/mod_route.R": {
+      "checksum": "7495ed0af9e6a2b11247bc1eae1a5fbc"
     },
     "R/server_checks.R": {
       "checksum": "5bbaed8849b54d9c230e3879b7ab6ae6"
@@ -3185,16 +3182,16 @@
       "checksum": "2dc51eba523a385b3df2a3f0378adfbb"
     },
     "R/server_run.R": {
-      "checksum": "dcc2d375bd1fd22ff55247d3794b340a"
+      "checksum": "c088bab15477c7bb6cbe81b662c04ede"
     },
     "R/setup_packages.R": {
       "checksum": "84a46a4d141a3a7d3de52f7893247043"
     },
     "R/setup_state.R": {
-      "checksum": "d634950d7d8b885f0a976e9df41455e6"
+      "checksum": "4f1af1ebf3a87a6a68bbb29707ed4737"
     },
     "R/setup_store.R": {
-      "checksum": "957a516ff72cd35ec15f6c86baad8222"
+      "checksum": "919a45e80059915e15a8d639f6d6ef7e"
     },
     "R/ui_components.R": {
       "checksum": "68f7a0745ca966d62cdded799a13fe8d"
@@ -3203,7 +3200,7 @@
       "checksum": "ecfbb0ed4014f6f6f73297931e3e0d82"
     },
     "www/styles.css": {
-      "checksum": "6a5dd6498006f59b226fda9d967157b5"
+      "checksum": "41a202af690a4c2c84cae08ee58ff4ec"
     }
   },
   "users": null

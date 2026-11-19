@@ -2,6 +2,16 @@
 # Server piece: running, the Results tab and the downloads
 # =============================================================================
 
+#' The Results Workbook Writer
+#'
+#' The package's formatter, with the sheet that holds analyses without a
+#' theme named "analysis" rather than the formatter's own default.
+#' @param ... Passed to analysiskit::format_my_xlsx_variable_x_group().
+ak_results_formatter <- function(...) {
+  format_my_xlsx_variable_x_group(..., table_sheet_name = "analysis")
+}
+
+
 #' Wire the Run Button, the Results Tab and the Downloads
 #'
 #' @param ctx A list: reactives `step_states`, `spec`, `dataset`,
@@ -115,7 +125,12 @@ ak_run_server <- function(input, output, session, ctx) {
       }
 
       shiny::setProgress(0.78, detail = "building the results workbook")
-      if (isTRUE(spec$settings$include_dataset)) {
+      include_dataset <- if (is.null(ctx$include_dataset)) {
+        isTRUE(spec$settings$include_dataset)
+      } else {
+        ctx$include_dataset()
+      }
+      if (include_dataset) {
         note("The dataset will be added to the workbook as a 'dataset' sheet")
         flush_log()
       }
@@ -123,7 +138,9 @@ ak_run_server <- function(input, output, session, ctx) {
       written <- capture(
         ak_export_results(
           results = result, spec = spec, folder = folder,
-          dataset_name = dataset_name, dataset = dataset, verbose = TRUE
+          dataset_name = dataset_name, dataset = dataset,
+          include_dataset = include_dataset, formatter = ak_results_formatter,
+          verbose = TRUE
         ),
         note
       )
@@ -256,7 +273,17 @@ ak_run_server <- function(input, output, session, ctx) {
     filename = function() {
       paste0("analysiskit_setup_", format(Sys.time(), "%Y%m%d-%H%M%S"), ".xlsx")
     },
-    content = function(file) ak_write_setup(ctx$sheets(), file)
+    content = function(file) {
+      sheets <- ctx$sheets()
+      # The dataset checkbox travels with the setup, so the next import puts
+      # it back where it was.
+      if (!is.null(ctx$include_dataset)) {
+        sheets$settings <- ak_set_setting(
+          sheets$settings, "include_dataset", ctx$include_dataset(), "lgl", NULL
+        )
+      }
+      ak_write_setup(sheets, file)
+    }
   )
 
   output$results_file <- shiny::downloadHandler(

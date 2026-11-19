@@ -92,9 +92,17 @@ ak_setup_store <- function() {
 #'   reactive returning them.
 #' @param selection `"multiple"` or `"single"`.
 #' @param page_length Rows per page.
+#' @param descriptions Optional named character vector, one short description
+#'   per column, shown as a second header row under the column names.
+#' @param escape Passed to DT::datatable(); `FALSE` for columns that hold
+#'   input controls built by the module.
+#' @param callback Optional JavaScript (DT::JS) run when the table is drawn.
+#' @param ordering Allow sorting by clicking a header.
 #' @return The proxy, invisibly.
 ak_dt_bind <- function(output, session, id, data, editable_columns = character(0),
-                       selection = "multiple", page_length = 10L) {
+                       selection = "multiple", page_length = 10L,
+                       descriptions = NULL, escape = TRUE, callback = NULL,
+                       ordering = TRUE) {
   columns <- shiny::reactive(names(data()))
 
   output[[id]] <- DT::renderDT({
@@ -106,9 +114,24 @@ ak_dt_bind <- function(output, session, id, data, editable_columns = character(0
       editable_columns
     }
     disabled <- which(!cols %in% editable) - 1L
-    DT::datatable(
+    extra <- list()
+    if (!is.null(descriptions)) {
+      extra$container <- htmltools::tags$table(
+        class = "display",
+        htmltools::tags$thead(
+          htmltools::tags$tr(lapply(cols, htmltools::tags$th)),
+          htmltools::tags$tr(
+            class = "ak-col-help",
+            lapply(cols, function(col) htmltools::tags$th(unname(descriptions[col]) %||% ""))
+          )
+        )
+      )
+    }
+    if (!is.null(callback)) extra$callback <- callback
+    do.call(DT::datatable, c(list(
       df,
       rownames = FALSE,
+      escape = escape,
       selection = selection,
       class = "compact stripe hover ak-dt",
       editable = if (length(editable) > 0L) {
@@ -121,9 +144,10 @@ ak_dt_bind <- function(output, session, id, data, editable_columns = character(0
         lengthMenu = c(10, 25, 50, 100),
         scrollX = TRUE,
         dom = "ftip",
+        ordering = ordering,
         language = list(emptyTable = "Nothing added yet.")
       )
-    )
+    ), extra))
   }, server = TRUE)
 
   proxy <- DT::dataTableProxy(id, session = session)

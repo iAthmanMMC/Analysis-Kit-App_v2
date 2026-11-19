@@ -35,6 +35,27 @@ test_that("the label row is not counted as an answer", {
   expect_false("What is your gender?" %in% d$choices[[match("Q27", d$variable)]])
 })
 
+test_that("'please specify' questions and Q156/Q157 are text", {
+  expect_equal(
+    ak_is_free_text(
+      c("Q1", "Q2", "Q3", "Q4", "Q5", "Q156", "Q157", "Q6"),
+      c("Other, please specify", "Please Specify", "PLEASE-SPECIFY",
+        "please_sepcify", "Where are you?", NA, "Anything", NA)
+    ),
+    c(TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, TRUE, FALSE)
+  )
+
+  data <- data.frame(
+    Q27 = c("What is your gender?", "Female", "Male", "Female"),
+    Q28 = c("Other gender, please specify", "Trans", "Trans", "Trans"),
+    Q156 = c("Comments", "1", "2", "3"),
+    stringsAsFactors = FALSE
+  )
+  d <- ak_dataset_dictionary(data)
+  expect_equal(d$type, c("select_one", "text", "text"))
+  expect_equal(d$n_choices[2], 0L)
+})
+
 test_that("analysis types are suggested from question types", {
   expect_equal(
     ak_suggest_analysis_type(c("select_one", "select_multiple", "numeric", "text")),
@@ -76,13 +97,6 @@ test_that("lists and logicals are written the way the reader parses them", {
   expect_false(loa_has_errors(parsed$problems))
   expect_equal(parsed$settings$value_columns, c("stat", "n", "n_total", "n_w"))
   expect_true(parsed$settings$include_dataset)
-})
-
-test_that("each settings key falls into a group", {
-  groups <- ak_setting_group(analysiskit::loa_settings_schema()$setting)
-  expect_true(all(nzchar(groups)))
-  expect_equal(ak_setting_group("weight_column"), "Data and design")
-  expect_equal(ak_setting_group("count_exclusive_combinations_heading"), "Single choices")
 })
 
 # -- the workbook the package reads ----------------------------------------------
@@ -193,7 +207,85 @@ test_that("an analysis set up on screen is checked and runs without a workbook",
     expect_null(run_error())
     expect_false(is.null(analysis_results()))
     expect_true(file.exists(saved_path()))
+    # No theme: one sheet named "analysis"; the dataset is in by default.
+    sheets <- readxl::excel_sheets(saved_path())
+    expect_true("analysis" %in% sheets)
+    expect_true("dataset" %in% sheets)
   })
+})
+
+test_that("a theme becomes a sheet, and unticking the dataset leaves it out", {
+  skip_without_app()
+  destination_dir <- temp_destination()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file(fixture_dataset(40))))
+    session$setInputs(include_dataset = FALSE)
+    setup$set("analysis_variables", data.frame(
+      analysis_type = c("prop_select_one", "mean"),
+      analysis_var = c("Q27", "Q29"),
+      stringsAsFactors = FALSE
+    ))
+    setup$set("disaggregation_variables", data.frame(
+      raw_data_name = "Q31", new_name = "Travelling_with_children", include = "TRUE",
+      stringsAsFactors = FALSE
+    ))
+    session$setInputs(`vars-cell` = list(row = 1, col = "sector", value = "Protection"))
+    expect_equal(setup$sheet("analysis_variables")$sector, c("Protection", NA))
+    expect_equal(ak_setting_value(setup$sheet("settings"), "extra_columns", "chr[]"), "sector")
+
+    session$setInputs(folder = pick_folder(destination_dir))
+    session$setInputs(run = 1)
+
+    expect_null(run_error())
+    sheets <- readxl::excel_sheets(saved_path())
+    expect_true("Protection" %in% sheets)
+    expect_false("dataset" %in% sheets)
+  })
+})
+
+test_that("the cells of the analyses table edit the sheet", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    setup$set("analysis_variables", data.frame(
+      analysis_type = c("prop_select_one", "mean"),
+      analysis_var = c("Q27", "Q29"),
+      stringsAsFactors = FALSE
+    ))
+
+    session$setInputs(`vars-cell` = list(row = 2, col = "analysis_type", value = "median"))
+    session$setInputs(`vars-cell` = list(row = 1, col = "full_sample_base", value = TRUE))
+    session$setInputs(`vars-cell` = list(row = 1, col = "full_sample_label", value = " Not asked "))
+    df <- setup$sheet("analysis_variables")
+    expect_equal(df$analysis_type, c("prop_select_one", "median"))
+    expect_equal(df$full_sample_base[1], "TRUE")
+    expect_equal(df$full_sample_label[1], "Not asked")
+
+    session$setInputs(`vars-cell` = list(row = 1, col = "full_sample_base", value = FALSE))
+    expect_true(is.na(setup$sheet("analysis_variables")$full_sample_base[1]))
+
+    # Only the columns the table offers can be written.
+    session$setInputs(`vars-cell` = list(row = 1, col = "level", value = "0.95"))
+    expect_false("level" %in% names(setup$sheet("analysis_variables")))
+  })
+})
+
+test_that("the analyses table offers only the types a question can take", {
+  d <- ak_dataset_dictionary(fixture_dataset(10))
+  df <- data.frame(analysis_type = c("prop_select_one", "mean", "prop_select_multiple"),
+                   analysis_var = c("Q27", "Q29", "Q78"), full_sample_base = c("TRUE", NA, NA),
+                   stringsAsFactors = FALSE)
+  view <- ak_analysis_list_view(df, d)
+
+  expect_equal(names(view), names(ak_analysis_column_help()))
+  expect_equal(view$analysis_type[1], "prop_select_one")
+  expect_match(view$analysis_type[2], "<select")
+  expect_match(view$analysis_type[2], 'value="median"')
+  expect_match(view$full_sample_base[1], "checked")
+  expect_equal(view$full_sample_base[2], "-")
+  expect_match(view$full_sample_label[3], "disabled")
 })
 
 test_that("a problem made on screen blocks the run like one in a workbook", {
@@ -242,18 +334,31 @@ test_that("the setup downloads as a workbook that imports back", {
     expect_true(file.exists(written))
     sheets <- readxl::excel_sheets(written)
     expect_true(all(c("analysis_variables", "disaggregation_variables", "settings") %in% sheets))
+    # The dataset checkbox travels with the setup.
+    settings <- readxl::read_excel(written, sheet = "settings")
+    expect_equal(ak_setting_text(settings, "include_dataset"), "TRUE")
   })
 })
 
-test_that("the settings tab writes only what differs from the default", {
+test_that("an imported include_dataset is kept in the setup", {
   skip_without_app()
 
   shiny::testServer(app_dir, {
-    session$setInputs(`settings-s_engine` = "fast")
-    expect_equal(ak_setting_text(setup$sheet("settings"), "engine"), "fast")
-    session$setInputs(`settings-s_engine` = "auto")
-    expect_null(ak_setting_text(setup$sheet("settings"), "engine"))
+    sheets <- ak_empty_sheets()
+    sheets$analysis_variables <- data.frame(analysis_type = "prop_select_one",
+                                            analysis_var = "Q27", stringsAsFactors = FALSE)
+    sheets$settings <- ak_set_setting(NULL, "include_dataset", FALSE, "lgl", NULL)
+    file <- tempfile(fileext = ".xlsx")
+    ak_write_setup(sheets, file)
+    session$setInputs(loa = upload(file))
+    expect_false(ak_setting_value(setup$sheet("settings"), "include_dataset", "lgl", TRUE))
+  })
+})
 
+test_that("the route tab writes only what differs from the default", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
     session$setInputs(`route-s_places_stop` = TRUE)
     expect_equal(ak_setting_text(setup$sheet("route_analysis"), "places_stop"), "TRUE")
   })

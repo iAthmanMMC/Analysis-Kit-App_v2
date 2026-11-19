@@ -1,12 +1,13 @@
 # =============================================================================
-# Tabs: Settings (sheet settings) and Route analysis (sheet route_analysis)
+# Tab: Route analysis  (sheet route_analysis)
 # =============================================================================
 #
-# Both are generated from analysiskit::loa_settings_schema(), so a key the
-# package adds appears here without a change to the app. Defaults come from
+# Generated from analysiskit::loa_settings_schema(), so a key the package adds
+# appears here without a change to the app. Defaults come from
 # ak_settings_defaults(), which reads the pipeline's own formals. A value equal
 # to its default is not written into the sheet, exactly as "blank = default"
-# in the template.
+# in the template. The run-wide settings sheet is not edited on screen: it
+# keeps the template defaults unless an imported workbook sets them.
 # =============================================================================
 
 # Columns written per group block that the pipeline knows how to produce.
@@ -113,111 +114,6 @@ ak_settings_sync <- function(input, session, store, sheet_name, schema, defaults
 
 
 # -----------------------------------------------------------------------------
-# Settings tab
-# -----------------------------------------------------------------------------
-
-mod_settings_ui <- function(id) {
-  ns <- shiny::NS(id)
-  schema <- analysiskit::loa_settings_schema()
-  schema <- schema[schema$sheet == "settings", , drop = FALSE]
-  defaults <- ak_settings_defaults()
-  groups <- ak_setting_group(schema$setting)
-  advanced <- ak_advanced_settings()
-
-  group_order <- c("Data and design", "Estimation", "Output shape",
-                   "Selection counts", "Choice combinations", "Single choices",
-                   "Results workbook", "Other")
-
-  sections <- lapply(intersect(group_order, unique(groups)), function(g) {
-    rows <- schema[groups == g, , drop = FALSE]
-    inputs <- lapply(seq_len(nrow(rows)), function(i) {
-      tag <- ak_setting_input(ns, rows$setting[i], rows$type[i], rows$values[i],
-                              defaults[[rows$setting[i]]])
-      if (rows$setting[i] %in% advanced) {
-        shiny::conditionalPanel(sprintf("input['%s']", ns("show_advanced")), tag)
-      } else {
-        tag
-      }
-    })
-    gid <- gsub("[^a-z]", "_", tolower(g))
-    shiny::tags$details(
-      class = "ak-details ak-settings-group",
-      open = if (g %in% c("Output shape", "Data and design")) NA else NULL,
-      shiny::tags$summary(g, shiny::textOutput(ns(paste0("changed_", gid)), inline = TRUE)),
-      shiny::tags$div(class = "ak-settings-grid", inputs),
-      ak_toolbar(shiny::actionButton(ns(paste0("reset_", gid)), "Reset to defaults",
-                                     class = "btn-link"))
-    )
-  })
-
-  shiny::tagList(
-    ak_section(
-      "Settings",
-      ak_help(
-        "Everything that applies to the whole run. Each value starts at the ",
-        "package's default; only the ones you change are recorded, and the ",
-        "results readme lists them."
-      ),
-      shiny::checkboxInput(ns("show_advanced"), "Show advanced settings", FALSE),
-      sections,
-      shiny::uiOutput(ns("problems"))
-    )
-  )
-}
-
-
-mod_settings_server <- function(id, store, dictionary, problems, dataset_columns) {
-  shiny::moduleServer(id, function(input, output, session) {
-    schema <- analysiskit::loa_settings_schema()
-    schema <- schema[schema$sheet == "settings", , drop = FALSE]
-    defaults <- ak_settings_defaults()
-    groups <- ak_setting_group(schema$setting)
-
-    refresh <- ak_settings_sync(input, session, store, "settings", schema, defaults)
-
-    sheet <- shiny::reactive(store$sheet("settings"))
-
-    # Choices that come from the data.
-    shiny::observe({
-      cols <- dataset_columns()
-      for (key in c("weight_column", "strata_column")) {
-        selected <- ak_setting_text(shiny::isolate(sheet()), key) %||% ""
-        shiny::updateSelectizeInput(session, paste0("s_", key),
-                                    choices = unique(c("", selected, cols)),
-                                    selected = selected, server = TRUE)
-      }
-    })
-
-    shiny::observe({
-      av <- store$sheet("analysis_variables")
-      meta <- setdiff(names(av), ak_analysis_known_columns())
-      selected <- ak_setting_value(shiny::isolate(sheet()), "extra_columns", "chr[]")
-      shiny::updateSelectizeInput(session, "s_extra_columns",
-                                  choices = unique(c(selected, meta)),
-                                  selected = selected %||% character(0))
-    })
-
-    for (g in unique(groups)) local({
-      group <- g
-      gid <- gsub("[^a-z]", "_", tolower(group))
-      keys <- schema$setting[groups == group]
-      output[[paste0("changed_", gid)]] <- shiny::renderText({
-        n <- sum(keys %in% trimws(sheet()$setting))
-        if (n == 0L) "" else sprintf("  • %d changed", n)
-      })
-      shiny::observeEvent(input[[paste0("reset_", gid)]], {
-        s <- sheet()
-        store$set("settings", s[!trimws(s$setting) %in% keys, , drop = FALSE])
-        refresh(keys)
-      })
-    })
-
-    output$problems <- shiny::renderUI(ak_sheet_problems_ui(problems(), "settings"))
-  })
-}
-
-
-# -----------------------------------------------------------------------------
 # Route analysis tab
 # -----------------------------------------------------------------------------
 
@@ -240,6 +136,7 @@ mod_route_ui <- function(id) {
         "switched on gets a results sheet of its own. No rows are needed on the ",
         "Analysis variables tab: the question codes are fixed."
       ),
+      input_for("route_full_sample_base"),
       shiny::tags$div(
         class = "ak-route-blocks",
         lapply(blocks, function(b) {
@@ -252,11 +149,7 @@ mod_route_ui <- function(id) {
       "How the route tables are laid out",
       shiny::tags$div(
         class = "ak-settings-grid",
-        lapply(setdiff(schema$setting, blocks), input_for)
-      ),
-      ak_help(
-        "Weights come from weight_column on the Settings tab. Every route table ",
-        "is also broken down by each disaggregation."
+        lapply(setdiff(schema$setting, c(blocks, "route_full_sample_base")), input_for)
       )
     ),
     shiny::uiOutput(ns("problems"))

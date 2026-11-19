@@ -34,7 +34,7 @@ ak_setup_sheet_names <- function() {
 ak_setup_columns <- function() {
   list(
     analysis_variables = c(
-      "analysis_type", "analysis_var", "level",
+      "analysis_type", "analysis_var", "sector",
       "full_sample_base", "full_sample_label"
     ),
     disaggregation_variables = c("raw_data_name", "new_name", "include"),
@@ -225,6 +225,28 @@ ak_write_setup <- function(sheets, path) {
 # The dataset dictionary
 # -----------------------------------------------------------------------------
 
+#' Questions That Are Free Text Whatever Their Answers Look Like
+#'
+#' "Please specify" follow-ups hold typed answers even when only a few
+#' distinct values were given, which would otherwise look like a single
+#' choice. Matched in any capitalisation, with a space, hyphen or underscore
+#' between the words, and with the common misspelling "sepcify". Q156 and Q157
+#' are free text in the 4Mi questionnaire.
+#'
+#' @param variable Question codes.
+#' @param label Their labels; `NA` allowed.
+#' @return A logical vector.
+ak_is_free_text <- function(variable, label) {
+  specify <- grepl("please[[:space:]_-]*s(pe|ep)cify", label, ignore.case = TRUE)
+  specify[is.na(label)] <- FALSE
+  variable %in% ak_free_text_variables() | specify
+}
+
+#' Question Codes Always Treated as Free Text
+#' @return A character vector.
+ak_free_text_variables <- function() c("Q156", "Q157")
+
+
 #' Describe Every Question in a Dataset
 #'
 #' One row per question, so the builder can offer real variables rather than
@@ -297,9 +319,11 @@ ak_dataset_dictionary <- function(data,
         mean(Reduce(`|`, lapply(body[kids], has_value)))
       }
       label <- if (variable %in% nms) labels[[variable]] else NA_character_
+      free_text <- ak_is_free_text(variable, label)
       rows[[length(rows) + 1L]] <- list(
-        variable = variable, label = label, type = "select_multiple",
-        choices = choices, answered = answered,
+        variable = variable, label = label,
+        type = if (free_text) "text" else "select_multiple",
+        choices = if (free_text) character(0) else choices, answered = answered,
         columns = c(intersect(variable, nms), kids)
       )
       next
@@ -320,6 +344,7 @@ ak_dataset_dictionary <- function(data,
     } else {
       "text"
     }
+    if (type != "empty" && ak_is_free_text(variable, labels[[nm]])) type <- "text"
     choices <- if (type == "select_one") sort(unique(values)) else character(0)
 
     rows[[length(rows) + 1L]] <- list(
@@ -559,56 +584,6 @@ ak_set_setting <- function(sheet, key, value, type, default = NULL) {
   }
   rownames(sheet) <- NULL
   sheet
-}
-
-
-#' How the Settings Tab Groups the Keys
-#'
-#' The grouping of loa-schema.md section 7.1. A key the package adds later and
-#' this map does not know lands in "Other", so it is still settable.
-#'
-#' @param keys Setting names.
-#' @return A character vector of group names, one per key.
-ak_setting_group <- function(keys) {
-  groups <- list(
-    "Data and design" = c(
-      "sm_separator", "skip_label_row", "blank_to_na", "prepare_sm",
-      "sm_child_style", "recreate_sm_parents", "weight_column", "strata_column"
-    ),
-    "Estimation" = c(
-      "engine", "fallback_level", "min_group_n", "keep_missing_groups",
-      "slim_design", "lonely_psu", "exclude_ignore_case"
-    ),
-    "Output shape" = c(
-      "value_columns", "extra_columns", "missing_group_label", "use_group_prefix",
-      "summary_value_label", "drop_empty_prop_rows", "add_analysis_type_label",
-      "label_choices"
-    ),
-    "Results workbook" = "include_dataset"
-  )
-  vapply(keys, function(k) {
-    for (g in names(groups)) if (k %in% groups[[g]]) return(g)
-    if (startsWith(k, "count_selections")) return("Selection counts")
-    if (startsWith(k, "count_exclusive") || k == "max_exclusive_choices") {
-      return("Single choices")
-    }
-    if (startsWith(k, "count_combinations") || k == "max_combination_choices") {
-      return("Choice combinations")
-    }
-    "Other"
-  }, character(1), USE.NAMES = FALSE)
-}
-
-
-#' Settings Shown Only Under "Show Advanced"
-#'
-#' Keys the schema says to leave alone, or that only matter to the survey
-#' engine's internals.
-#' @return A character vector.
-ak_advanced_settings <- function() {
-  c("use_group_prefix", "slim_design", "lonely_psu", "fallback_level",
-    "prepare_sm", "blank_to_na", "sm_child_style", "recreate_sm_parents",
-    "skip_label_row", "drop_empty_prop_rows")
 }
 
 

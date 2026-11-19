@@ -30,8 +30,8 @@ options(shiny.maxRequestSize = 100 * 1024^2)
 
 for (file in c(
   "R/ui_components.R", "R/setup_state.R", "R/setup_store.R",
-  "R/mod_analysis_vars.R", "R/mod_disaggregation.R", "R/mod_choices.R",
-  "R/mod_settings.R", "R/server_inputs.R", "R/server_checks.R", "R/server_run.R"
+  "R/mod_analysis_vars.R", "R/mod_disaggregation.R", "R/mod_route.R",
+  "R/server_inputs.R", "R/server_checks.R", "R/server_run.R"
 )) {
   source(file)
 }
@@ -84,6 +84,15 @@ ui <- fluidPage(
           "Dataset",
           conditionalPanel(
             condition = "output.datasetReady",
+            ak_section(
+              "Results workbook",
+              checkboxInput("include_dataset",
+                            "Include the dataset in the results workbook", value = TRUE),
+              ak_help(
+                "Adds the dataset as a sheet named dataset, after the analysis ",
+                "sheets. It is personal data: store and share the workbook accordingly."
+              )
+            ),
             ak_section("Dataset overview", tableOutput("dataset_overview")),
             ak_section("Column profile",
                        div(class = "table-scroll", tableOutput("dataset_columns"))),
@@ -93,8 +102,6 @@ ui <- fluidPage(
         ),
         tabPanel("Analysis variables", mod_analysis_vars_ui("vars")),
         tabPanel("Disaggregations", mod_disaggregation_ui("groups")),
-        tabPanel("Multiple choice", mod_choices_ui("choices")),
-        tabPanel("Settings", mod_settings_ui("settings")),
         tabPanel("Route analysis", mod_route_ui("route")),
         tabPanel(
           "Checks",
@@ -195,6 +202,18 @@ server <- function(input, output, session) {
   })
   dataset_columns <- reactive(if (dataset_ok()) names(uploaded_dataset()$data) else character(0))
 
+  # The dataset checkbox is a run option, kept out of the setup sheets so an
+  # imported workbook still checks exactly as uploading it would. An import
+  # that sets include_dataset moves the checkbox to its value.
+  include_dataset <- reactive(isTRUE(input$include_dataset %||% TRUE))
+  observeEvent(setup$version(), {
+    settings <- setup$sheet("settings")
+    if (!is.null(ak_setting_text(settings, "include_dataset"))) {
+      updateCheckboxInput(session, "include_dataset",
+                          value = ak_setting_value(settings, "include_dataset", "lgl", FALSE))
+    }
+  }, ignoreInit = TRUE)
+
   # -- checks --------------------------------------------------------------------
   # No progress bar: validation takes milliseconds and feeds several outputs.
   analysis_spec <- reactive({
@@ -220,8 +239,6 @@ server <- function(input, output, session) {
   # -- builder tabs ----------------------------------------------------------------
   mod_analysis_vars_server("vars", setup, dictionary, tab_problems)
   mod_disaggregation_server("groups", setup, dictionary, tab_problems)
-  mod_choices_server("choices", setup, dictionary, tab_problems, settings_value)
-  mod_settings_server("settings", setup, dictionary, tab_problems, dataset_columns)
   mod_route_server("route", setup, tab_problems, dataset_columns, settings_value)
 
   # -- tracker and status ------------------------------------------------------------
@@ -299,6 +316,7 @@ server <- function(input, output, session) {
   ak_run_server(input, output, session, list(
     step_states = step_states, spec = analysis_spec, dataset = uploaded_dataset,
     output_folder = output_folder, sheets = setup$sheets, mode = destination_mode,
+    include_dataset = include_dataset,
     running = running, analysis_results = analysis_results, run_error = run_error,
     run_log = run_log, saved_path = saved_path
   ))

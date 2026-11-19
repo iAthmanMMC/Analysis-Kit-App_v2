@@ -32,15 +32,33 @@ mod_disaggregation_ui <- function(id) {
       ak_toolbar(
         shiny::actionButton(ns("up"), NULL, icon = shiny::icon("arrow-up"), title = "Move up"),
         shiny::actionButton(ns("down"), NULL, icon = shiny::icon("arrow-down"), title = "Move down"),
-        shiny::actionButton(ns("toggle"), "Include / park", icon = shiny::icon("toggle-on")),
+        shiny::actionButton(ns("toggle"), "Switch include on / off",
+                            icon = shiny::icon("toggle-on"),
+                            title = "Leave the selected rows out of the run, or bring them back"),
         shiny::actionButton(ns("remove"), "Remove", icon = shiny::icon("trash"))
       ),
       DT::DTOutput(ns("list")),
-      ak_help(
-        "Click a name in the new_name column to change it. It is the heading ",
-        "the output uses for that variable: letters, numbers and underscores, ",
-        "and no name may contain another (Region and Region_of_origin clash). ",
-        "include FALSE parks a row without deleting it."
+      shiny::tags$div(
+        class = "ak-note",
+        shiny::tags$p(
+          shiny::tags$strong("What include means. "),
+          "TRUE: the variable is reported in this run. FALSE: the row stays in ",
+          "the list but is left out of the results - it is ", shiny::tags$em("parked"),
+          ". Use it for a disaggregation you need in some rounds and not ",
+          "others: switch it off instead of deleting it, and back on later ",
+          "without adding it again or retyping its name."
+        ),
+        shiny::tags$p(
+          "To change include, select rows and click Switch include on / off, or ",
+          "double-click the cell and type TRUE or FALSE. To delete a row for ",
+          "good, use Remove."
+        ),
+        shiny::tags$p(
+          shiny::tags$strong("new_name"),
+          " is the heading the results use for the variable. Double-click to ",
+          "change it: letters, numbers and underscores, and no name may contain ",
+          "another (Region and Region_of_origin clash)."
+        )
       ),
       shiny::uiOutput(ns("problems"))
     )
@@ -94,7 +112,14 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
     })
 
     ak_dt_bind(output, session, "list", list_data,
-               editable_columns = c("new_name", "include"), page_length = 25L)
+               editable_columns = c("new_name", "include"), page_length = 25L,
+               ordering = FALSE,
+               descriptions = c(
+                 raw_data_name = "The column in the dataset.",
+                 new_name = "Its heading in the results.",
+                 include = "TRUE: reported. FALSE: parked - kept here, left out of the run.",
+                 question_label = "The question's label in the dataset."
+               ))
 
     shiny::observeEvent(input$list_cell_edit, {
       df <- sheet()
