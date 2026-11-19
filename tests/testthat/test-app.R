@@ -1,0 +1,579 @@
+# The wiring itself: app.R driven through shiny::testServer(), which is the one
+# place a live reactive session is genuinely needed. Everything these tests
+# assert about behaviour - what blocks a run, what only warns - is decided by
+# the pure functions tested elsewhere; here we check that the server asks them.
+
+
+
+test_that("the app loads and starts on the dataset step", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    expect_equal(step_states()[["dataset"]], "active")
+    expect_equal(step_states()[["loa"]], "todo")
+    expect_false(ak_can_run(step_states()))
+    expect_match(ui_text(output$status), "Upload a CSV or XLSX dataset")
+  })
+})
+
+test_that("a dataset upload is read, profiled and advances the tracker", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file(), "4mi_export.xlsx"))
+
+    expect_true(dataset_ok())
+    expect_equal(step_states()[["dataset"]], "done")
+    expect_equal(step_states()[["loa"]], "active")
+
+    # The column profile and preview were dead code until now; assert they
+    # actually render rather than trusting the UI wiring.
+    expect_match(output$dataset_overview, "4mi_export.xlsx")
+    expect_match(output$dataset_columns, "Q27")
+    expect_match(output$dataset_preview, "Female")
+
+    expect_match(ui_text(output$status), "Set up the analysis in the tabs")
+  })
+})
+
+test_that("an unreadable dataset is reported without stopping the app", {
+  skip_without_app()
+
+  path <- tempfile(fileext = ".txt")
+  writeLines("not a dataset", path)
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(path, "notes.txt"))
+
+    expect_false(dataset_ok())
+    expect_equal(step_states()[["dataset"]], "error")
+    expect_match(ui_text(output$status), "CSV or XLSX")
+  })
+})
+
+test_that("the checks run as soon as both files are in, without a button", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file()))
+
+    expect_true(loa_ok())
+    expect_false(loa_has_errors(loa_problems()))
+    expect_equal(step_states()[["checks"]], "done")
+    expect_match(ui_text(output$status), "Every check passed")
+
+    # The checks pass, but there is nowhere to save yet.
+    expect_equal(step_states()[["destination"]], "active")
+    expect_false(ak_can_run(step_states()))
+
+    session$setInputs(folder = pick_folder(temp_destination()))
+    expect_equal(step_states()[["destination"]], "done")
+    expect_true(ak_can_run(step_states()))
+  })
+})
+
+test_that("the variable check compares the workbook against the dataset just read", {
+  skip_without_app()
+
+  sheets <- fixture_sheets()
+  sheets$analysis <- rbind(
+    sheets$analysis,
+    data.frame(
+      analysis_type = "prop_select_one", analysis_var = "Q999",
+      level = NA_real_, sector = "Other", stringsAsFactors = FALSE
+    )
+  )
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file(sheets)))
+
+    coverage <- variable_coverage()
+    expect_true("Q999" %in% coverage$variable)
+    expect_false(coverage$present[coverage$variable == "Q999"])
+
+    expect_match(output$coverage_table, "Not in dataset")
+    expect_match(ui_text(output$coverage_note), "not in")
+
+    # A missing analysis variable costs a row, not correctness, so the run is
+    # still offered.
+    expect_equal(step_states()[["checks"]], "warning")
+    session$setInputs(folder = pick_folder(temp_destination()))
+    expect_true(ak_can_run(step_states()))
+  })
+})
+
+test_that("the check reruns when a different dataset is uploaded", {
+  skip_without_app()
+
+  # The same workbook against a dataset from another round: the point of
+  # running the check on both inputs rather than once at upload.
+  other <- fixture_dataset()
+  names(other) <- paste0("R2_", names(other))
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file()))
+    session$setInputs(folder = pick_folder(temp_destination()))
+    expect_true(ak_can_run(step_states()))
+
+    session$setInputs(dataset = upload(dataset_file(other)))
+
+    expect_true(loa_has_errors(loa_problems()))
+    expect_equal(step_states()[["checks"]], "error")
+    expect_false(ak_can_run(step_states()))
+    expect_match(ui_text(output$status), "must be fixed before running")
+  })
+})
+
+test_that("a workbook with a fatal problem blocks the run and says where", {
+  skip_without_app()
+
+  sheets <- fixture_sheets()
+  sheets$analysis$analysis_type[1] <- "prop_select_mutliple"
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file(sheets)))
+
+    expect_true(loa_has_errors(loa_problems()))
+    expect_false(ak_can_run(step_states()))
+    expect_match(output$loa_problems, "Must fix")
+    expect_match(ui_text(output$check_badges), "problem to fix")
+  })
+})
+
+test_that("an unreadable List of Analysis is reported, not thrown", {
+  skip_without_app()
+
+  path <- tempfile(fileext = ".docx")
+  writeLines("x", path)
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(path, "loa.docx"))
+
+    expect_false(loa_ok())
+    expect_equal(step_states()[["loa"]], "error")
+    expect_match(ui_text(output$status), "CSV or XLSX")
+  })
+})
+
+test_that("the sheet summary reflects what the workbook actually supplied", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file()))
+
+    html <- output$loa_sheets
+    expect_match(html, "exclude_choices")
+    expect_match(html, "Not supplied - defaults apply")
+  })
+})
+
+test_that("a blocked workbook never reaches the pipeline at all", {
+  skip_without_app()
+
+  sheets <- fixture_sheets()
+  sheets$analysis$analysis_type[1] <- "nonsense"
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file(sheets)))
+    session$setInputs(run = 1)
+
+    expect_null(analysis_results())
+    expect_false(ak_can_run(step_states()))
+  })
+})
+
+test_that("uploading a file does not start an analysis by itself", {
+  skip_without_app()
+
+  destination <- temp_destination()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file()))
+    session$setInputs(folder = pick_folder(destination))
+
+    # Everything is valid and every check passes, and still nothing has run and
+    # nothing has been written: expensive work, and files on disk, wait for the
+    # button.
+    expect_true(ak_can_run(step_states()))
+    expect_null(analysis_results())
+    expect_null(run_error())
+    expect_null(saved_path())
+    expect_equal(length(list.files(destination)), 0L)
+    expect_equal(step_states()[["results"]], "active")
+  })
+})
+
+test_that("no output is computed against an empty upload", {
+  skip_without_app()
+
+  # The regression this guards: reading the upload into a reactiveVal made
+  # uploaded_dataset() return NULL rather than suspending, so every dataset
+  # output ran against a dataset with no size, rows or columns.
+  expect_no_warning(
+    shiny::testServer(app_dir, {
+      force(output$status)
+      force(output$progress_tracker)
+      force(output$run_control)
+      force(output$run_hint)
+      force(output$loa_status)
+      force(output$results_status)
+    })
+  )
+})
+
+test_that("the status message reflects the file that was actually read", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file(), "round_9.xlsx"))
+    expect_match(ui_text(output$status), "Loaded round_9.xlsx")
+
+    # Replacing the file must replace the message, not append to it.
+    session$setInputs(dataset = upload(dataset_file(), "round_10.xlsx"))
+    expect_match(ui_text(output$status), "Loaded round_10.xlsx")
+    expect_no_match(ui_text(output$status), "round_9")
+  })
+})
+
+test_that("clicking run produces results and saves a workbook to the chosen folder", {
+  skip_without_app()
+  skip_if_not(
+    exists("run_group_analysis_pipeline", mode = "function"),
+    "analysis functions are not in the repository yet"
+  )
+  skip_if_not_installed("openxlsx")
+
+  destination <- temp_destination()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file(fixture_dataset(40)), "round_9.xlsx"))
+    session$setInputs(loa = upload(loa_file()))
+    session$setInputs(folder = pick_folder(destination))
+    expect_true(ak_can_run(step_states()))
+
+    session$setInputs(run = 1)
+
+    expect_null(run_error())
+    expect_false(is.null(analysis_results()))
+    expect_true(nrow(analysis_results()$combined_results) > 0)
+
+    # The file is the deliverable; the reactive value is only how we found it.
+    expect_false(is.null(saved_path()))
+    expect_true(file.exists(saved_path()))
+    expect_equal(as_dir(dirname(saved_path())), as_dir(destination))
+    expect_equal(list.files(destination), basename(saved_path()))
+    expect_match(basename(saved_path()), "^analysiskit_round_9_.*[.]xlsx$")
+
+    expect_equal(step_states()[["results"]], "done")
+    expect_match(ui_text(output$results_status), "Saved as")
+    expect_match(output$results_summary, basename(saved_path()), fixed = TRUE)
+  })
+})
+
+test_that("the run log keeps what the pipeline reported", {
+  skip_without_app()
+  skip_if_not(
+    exists("run_group_analysis_pipeline", mode = "function"),
+    "analysis functions are not in the repository yet"
+  )
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file(fixture_dataset(40))))
+    session$setInputs(loa = upload(loa_file()))
+    session$setInputs(folder = pick_folder(temp_destination()))
+    session$setInputs(run = 1)
+
+    log <- run_log()
+    expect_true(length(log) > 0)
+    # The pipeline's own diagnostics, not our narration - these are what tell an
+    # analyst which variables were skipped or which groups were set aside.
+    expect_match(log, "ANALYSIS DONE", all = FALSE)
+    expect_match(log, "^Saved to ", all = FALSE)
+    # The "-->" prefix is console formatting and has no place in the interface.
+    expect_false(any(startsWith(log, "-->")))
+    expect_match(ui_text(output$run_log), "ANALYSIS DONE")
+  })
+})
+
+test_that("a run is refused, and nothing is written, when the folder has gone", {
+  skip_without_app()
+  skip_if_not(
+    exists("run_group_analysis_pipeline", mode = "function"),
+    "analysis functions are not in the repository yet"
+  )
+
+  destination <- temp_destination()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file()))
+    session$setInputs(folder = pick_folder(destination))
+
+    # Chosen, then removed behind the app's back - the realistic version of a
+    # network drive going away between choosing and running.
+    unlink(destination, recursive = TRUE)
+    session$setInputs(run = 1)
+
+    expect_null(analysis_results())
+    expect_null(saved_path())
+    expect_match(run_error(), "does not exist")
+  })
+})
+
+test_that("a blocked workbook writes nothing to the destination", {
+  skip_without_app()
+
+  sheets <- fixture_sheets()
+  sheets$analysis$analysis_type[1] <- "nonsense"
+  destination <- temp_destination()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file(sheets)))
+    session$setInputs(folder = pick_folder(destination))
+    session$setInputs(run = 1)
+
+    expect_null(saved_path())
+    expect_equal(length(list.files(destination)), 0L)
+  })
+})
+
+test_that("served, the app asks for no folder and settles the destination itself", {
+  skip_without_app()
+
+  withr::with_options(list(analysiskit.server = TRUE), {
+    shiny::testServer(app_dir, {
+      session$setInputs(dataset = upload(dataset_file()))
+      session$setInputs(loa = upload(loa_file()))
+
+      # No folder was chosen, and none can be: the run is still offered.
+      expect_false(destination_mode$pick_folder)
+      expect_equal(step_states()[["destination"]], "done")
+      expect_true(ak_can_run(step_states()))
+
+      # The picker is not rendered at all, rather than shown and ignored.
+      expect_equal(trimws(ui_text(output$folder_control)), "")
+      expect_match(ui_text(output$folder_status), "running on a server")
+      expect_match(ui_text(output$folder_status), "download")
+    })
+  })
+})
+
+test_that("served, the workbook is built in the session temp folder and offered as a download", {
+  skip_without_app()
+  skip_if_not(
+    exists("run_group_analysis_pipeline", mode = "function"),
+    "analysis functions are not in the repository yet"
+  )
+  skip_if_not_installed("openxlsx")
+
+  withr::with_options(list(analysiskit.server = TRUE), {
+    shiny::testServer(app_dir, {
+      session$setInputs(dataset = upload(dataset_file(fixture_dataset(40))))
+      session$setInputs(loa = upload(loa_file()))
+      session$setInputs(run = 1)
+
+      expect_null(run_error())
+      expect_true(file.exists(saved_path()))
+      # Nowhere the user might mistake for storage, and nowhere another
+      # session on the same instance is looking either.
+      expect_true(
+        startsWith(normalizePath(dirname(saved_path())), normalizePath(tempdir()))
+      )
+      expect_equal(as_dir(dirname(saved_path())), as_dir(session_output_dir))
+
+      expect_match(ui_text(output$download_control), "Download the results workbook")
+      expect_match(ui_text(output$results_status), "Download")
+      expect_match(
+        output$results_summary, "Download using the button above", fixed = TRUE
+      )
+      # The row is named after what happens, not after a choice the user is
+      # not being offered.
+      expect_match(output$results_summary, "Delivery", fixed = TRUE)
+    })
+  })
+})
+
+
+test_that("served, the destination step reads as settled rather than missing", {
+  skip_without_app()
+
+  withr::with_options(list(analysiskit.server = TRUE), {
+    shiny::testServer(app_dir, {
+      # No folder picker, and no heading promising one.
+      expect_equal(trimws(ui_text(output$folder_control)), "")
+      expect_match(ui_text(output$folder_label), "How you get the results")
+      expect_false(grepl("Output folder", ui_text(output$folder_label)))
+
+      # Stated as done, not as a neutral aside, and it says where the button
+      # will be.
+      status <- ui_text(output$folder_status)
+      expect_match(status, "download")
+      expect_match(status, "Results tab")
+      expect_match(status, "status-success")
+
+      # The tracker names the step after what happens here.
+      expect_match(ui_text(output$progress_tracker), "Delivery")
+      expect_false(grepl("Destination", ui_text(output$progress_tracker)))
+    })
+  })
+})
+
+
+test_that("locally, the folder picker and its heading are both present", {
+  skip_without_app()
+
+  withr::with_options(list(analysiskit.server = FALSE), {
+    shiny::testServer(app_dir, {
+      expect_match(ui_text(output$folder_label), "Output folder")
+      expect_match(ui_text(output$folder_control), "Choose folder")
+      expect_match(ui_text(output$progress_tracker), "Destination")
+    })
+  })
+})
+
+
+# shinyDirChoose() installs a server-side observer that answers directory
+# listings rooted at every volume on the machine. Not rendering the button is
+# not enough on its own: a Shiny input is a websocket message, so the observer
+# stays reachable for as long as it exists, whatever the page happens to ship.
+# Served, it must never be created at all.
+#
+# `volumes` is assigned in the same branch as the shinyDirChoose() call, so
+# whether it is in the server function's environment is the observable trace of
+# whether the handler was registered.
+#
+# `session$env`, explicitly, and `inherits = FALSE`: testServer() evaluates its
+# block in a *child* of the server function's environment, not in that
+# environment itself. A bare exists("volumes", inherits = FALSE) is therefore
+# FALSE in both modes and would make the served test pass for the wrong reason;
+# a bare exists("volumes") happens to work only because nothing else on the
+# search path is called that.
+test_that("served, the directory browser is never registered", {
+  skip_without_app()
+
+  withr::with_options(list(analysiskit.server = TRUE), {
+    shiny::testServer(app_dir, {
+      expect_false(exists("volumes", envir = session$env, inherits = FALSE))
+    })
+  })
+})
+
+test_that("locally, the directory browser is registered", {
+  skip_without_app()
+
+  # The other half of the pair: without this, the test above would also pass if
+  # the picker had simply stopped working everywhere.
+  withr::with_options(list(analysiskit.server = FALSE), {
+    shiny::testServer(app_dir, {
+      expect_true(exists("volumes", envir = session$env, inherits = FALSE))
+    })
+  })
+})
+
+test_that("served, a folder input cannot move where the workbook is written", {
+  skip_without_app()
+
+  withr::with_options(list(analysiskit.server = TRUE), {
+    shiny::testServer(app_dir, {
+      before <- output_folder()
+      session$setInputs(folder = pick_folder(path.expand("~")))
+
+      expect_equal(output_folder(), before)
+      expect_true(
+        startsWith(normalizePath(output_folder()), normalizePath(tempdir()))
+      )
+    })
+  })
+})
+
+test_that("served, the output folder belongs to this session alone", {
+  skip_without_app()
+
+  withr::with_options(list(analysiskit.server = TRUE), {
+    shiny::testServer(app_dir, {
+      expect_false(is.null(session_output_dir))
+      expect_true(dir.exists(session_output_dir))
+      expect_equal(output_folder(), session_output_dir)
+
+      # Specifically not the one folder every session used to share.
+      expect_false(
+        identical(session_output_dir, file.path(tempdir(), "analysiskit-output"))
+      )
+    })
+  })
+})
+
+test_that("locally, no session output folder is created at all", {
+  skip_without_app()
+
+  # Locally the workbook goes to the folder the user picked, so there is
+  # nothing to build in temp and nothing to clean up.
+  withr::with_options(list(analysiskit.server = FALSE), {
+    shiny::testServer(app_dir, {
+      expect_null(session_output_dir)
+    })
+  })
+})
+
+test_that("the download is offered locally too, alongside the saved copy", {
+  skip_without_app()
+  skip_if_not(
+    exists("run_group_analysis_pipeline", mode = "function"),
+    "analysis functions are not in the repository yet"
+  )
+
+  destination <- temp_destination()
+
+  withr::with_options(list(analysiskit.server = FALSE), {
+    shiny::testServer(app_dir, {
+      session$setInputs(dataset = upload(dataset_file(fixture_dataset(40))))
+      session$setInputs(loa = upload(loa_file()))
+      session$setInputs(folder = pick_folder(destination))
+      session$setInputs(run = 1)
+
+      expect_equal(as_dir(dirname(saved_path())), as_dir(destination))
+      expect_match(ui_text(output$download_control), "Download the results workbook")
+    })
+  })
+})
+
+test_that("nothing is offered for download before a run has produced anything", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(loa = upload(loa_file()))
+
+    expect_equal(trimws(ui_text(output$download_control)), "")
+  })
+})
+
+test_that("the List of Analysis template is downloadable from the app", {
+  skip_without_app()
+
+  # The link is the only route to the template for anyone using a deployed
+  # copy, who has no access to the repository. It ships with analysiskit, so
+  # the template always matches the analysis code the app is running.
+  expect_true(nzchar(system.file("extdata", "loa_template.xlsx", package = "analysiskit")))
+
+  shiny::testServer(app_dir, {
+    # testServer runs the handler and hands back the path it wrote to.
+    written <- output$template
+
+    expect_true(file.exists(written))
+    expect_equal(basename(written), "analysiskit_loa_template.xlsx")
+    expect_gt(file.size(written), 5000)
+
+    skip_if_not_installed("readxl")
+    expect_true("analysis_variables" %in% readxl::excel_sheets(written))
+  })
+})
