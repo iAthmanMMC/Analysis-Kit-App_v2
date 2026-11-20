@@ -91,7 +91,8 @@ ak_setup_store <- function() {
 #' @param editable_columns Column names that can be edited in the cell, or a
 #'   reactive returning them.
 #' @param selection `"multiple"` or `"single"`.
-#' @param page_length Rows per page.
+#' @param height Maximum height of the table body; longer tables scroll
+#'   inside it rather than paging.
 #' @param descriptions Optional named character vector, one short description
 #'   per column, shown as a second header row under the column names.
 #' @param escape Passed to DT::datatable(); `FALSE` for columns that hold
@@ -100,7 +101,7 @@ ak_setup_store <- function() {
 #' @param ordering Allow sorting by clicking a header.
 #' @return The proxy, invisibly.
 ak_dt_bind <- function(output, session, id, data, editable_columns = character(0),
-                       selection = "multiple", page_length = 10L,
+                       selection = "multiple", height = "420px",
                        descriptions = NULL, escape = TRUE, callback = NULL,
                        ordering = TRUE) {
   columns <- shiny::reactive(names(data()))
@@ -140,10 +141,12 @@ ak_dt_bind <- function(output, session, id, data, editable_columns = character(0
         FALSE
       },
       options = list(
-        pageLength = page_length,
-        lengthMenu = c(10, 25, 50, 100),
+        # Every row on one scrolling page: analysts scroll, they do not page.
+        paging = FALSE,
+        scrollY = height,
+        scrollCollapse = TRUE,
         scrollX = TRUE,
-        dom = "ftip",
+        dom = "fti",
         ordering = ordering,
         language = list(emptyTable = "Nothing added yet.")
       )
@@ -159,6 +162,43 @@ ak_dt_bind <- function(output, session, id, data, editable_columns = character(0
   }, ignoreInit = TRUE)
 
   invisible(proxy)
+}
+
+
+#' JavaScript That Reports the Controls Inside a Table's Cells
+#'
+#' Every control with class `ak-cell-input` carries `data-row` (the sheet
+#' row) and `data-col` (the sheet column). A change sends
+#' `list(row, col, value)` to `input_id`; a checkbox sends TRUE or FALSE.
+#' Each control also stops its click, so ticking a box does not select the row.
+#'
+#' @param input_id The namespaced input id.
+#' @return A DT::JS callback.
+ak_cell_input_js <- function(input_id) {
+  DT::JS(sprintf(
+    "table.on('change', '.ak-cell-input', function() {
+       var el = this;
+       Shiny.setInputValue('%s', {
+         row: parseInt(el.getAttribute('data-row'), 10),
+         col: el.getAttribute('data-col'),
+         value: el.type === 'checkbox' ? el.checked : el.value
+       }, {priority: 'event'});
+     });",
+    input_id
+  ))
+}
+
+
+#' A Checkbox Cell for ak_cell_input_js()
+#' @param rows Sheet row numbers.
+#' @param col Sheet column name.
+#' @param checked Logical, one per row.
+#' @return HTML strings.
+ak_checkbox_cell <- function(rows, col, checked) {
+  sprintf(
+    '<input type="checkbox" class="ak-cell-input" data-row="%d" data-col="%s"%s onclick="event.stopPropagation()">',
+    as.integer(rows), col, ifelse(checked, " checked", "")
+  )
 }
 
 

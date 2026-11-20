@@ -26,11 +26,8 @@ test_that("a dataset upload is read, profiled and advances the tracker", {
     expect_equal(step_states()[["dataset"]], "done")
     expect_equal(step_states()[["loa"]], "active")
 
-    # The column profile and preview were dead code until now; assert they
-    # actually render rather than trusting the UI wiring.
+    # Assert the overview actually renders rather than trusting the UI wiring.
     expect_match(output$dataset_overview, "4mi_export.xlsx")
-    expect_match(output$dataset_columns, "Q27")
-    expect_match(output$dataset_preview, "Female")
 
     expect_match(ui_text(output$status), "Set up the analysis in the tabs")
   })

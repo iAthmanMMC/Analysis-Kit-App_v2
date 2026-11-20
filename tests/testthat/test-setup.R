@@ -56,6 +56,31 @@ test_that("'please specify' questions and Q156/Q157 are text", {
   expect_equal(d$n_choices[2], 0L)
 })
 
+test_that("the questionnaire's type wins, and inference covers the rest", {
+  data <- data.frame(
+    Q27 = c("What is your gender?", "1", "2", "1"),
+    Q28 = c("Other gender, please specify", "Trans", "Trans", "Trans"),
+    Q99 = c("Not in the questionnaire", "Female", "Male", "Female"),
+    stringsAsFactors = FALSE
+  )
+  d <- ak_dataset_dictionary(data, known_types = c(Q27 = "select_one", Q28 = "select_one"))
+  # Q27 looks numeric and Q28 says "please specify": the questionnaire decides.
+  expect_equal(d$type, c("select_one", "select_one", "select_one"))
+  expect_equal(d$choices[[1]], c("1", "2"))
+
+  d <- ak_dataset_dictionary(data, known_types = NULL)
+  expect_equal(d$type, c("numeric", "text", "select_one"))
+})
+
+test_that("the questionnaire types are well formed", {
+  types <- ak_survey_types()
+  expect_gt(length(types), 100L)
+  expect_false(anyDuplicated(names(types)) > 0L)
+  expect_true(all(types %in% c("select_one", "select_multiple", "numeric", "text", "date")))
+  expect_equal(unname(types[c("Q27", "Q78", "Q156", "Q157")]),
+               c("select_one", "select_multiple", "text", "text"))
+})
+
 test_that("analysis types are suggested from question types", {
   expect_equal(
     ak_suggest_analysis_type(c("select_one", "select_multiple", "numeric", "text")),
@@ -361,5 +386,28 @@ test_that("the route tab writes only what differs from the default", {
   shiny::testServer(app_dir, {
     session$setInputs(`route-s_places_stop` = TRUE)
     expect_equal(ak_setting_text(setup$sheet("route_analysis"), "places_stop"), "TRUE")
+  })
+})
+
+test_that("the include checkbox of a disaggregation parks and restores it", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    setup$set("analysis_variables", data.frame(
+      analysis_type = "prop_select_one", analysis_var = "Q27", stringsAsFactors = FALSE
+    ))
+    setup$set("disaggregation_variables", data.frame(
+      raw_data_name = "Q31", new_name = "Travelling_with_children", include = "TRUE",
+      stringsAsFactors = FALSE
+    ))
+    expect_equal(analysis_spec()$group_variables, c("Overall", "Travelling_with_children"))
+
+    session$setInputs(`groups-cell` = list(row = 1, col = "include", value = FALSE))
+    expect_equal(setup$sheet("disaggregation_variables")$include, "FALSE")
+    expect_equal(analysis_spec()$group_variables, "Overall")
+
+    session$setInputs(`groups-cell` = list(row = 1, col = "include", value = TRUE))
+    expect_equal(analysis_spec()$group_variables, c("Overall", "Travelling_with_children"))
   })
 })

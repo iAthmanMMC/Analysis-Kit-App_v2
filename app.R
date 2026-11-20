@@ -39,6 +39,13 @@ for (file in c(
 
 ui <- fluidPage(
   includeCSS("www/styles.css"),
+  # A scrolling DT table drawn in a hidden tab measures its columns as zero
+  # wide; realign them whenever a tab is shown.
+  tags$script(HTML(
+    "$(document).on('shown.bs.tab', function() {
+       if ($.fn.dataTable) $.fn.dataTable.tables({visible: true, api: true}).columns.adjust();
+     });"
+  )),
   tags$header(
     class = "app-header",
     titlePanel("Analysis Kit App"),
@@ -93,11 +100,7 @@ ui <- fluidPage(
                 "sheets. It is personal data: store and share the workbook accordingly."
               )
             ),
-            ak_section("Dataset overview", tableOutput("dataset_overview")),
-            ak_section("Column profile",
-                       div(class = "table-scroll", tableOutput("dataset_columns"))),
-            ak_section("First 10 rows",
-                       div(class = "table-scroll", tableOutput("dataset_preview")))
+            ak_section("Dataset overview", tableOutput("dataset_overview"))
           )
         ),
         tabPanel("Analysis variables", mod_analysis_vars_ui("vars")),

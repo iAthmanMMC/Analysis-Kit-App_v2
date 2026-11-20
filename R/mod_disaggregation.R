@@ -32,34 +32,9 @@ mod_disaggregation_ui <- function(id) {
       ak_toolbar(
         shiny::actionButton(ns("up"), NULL, icon = shiny::icon("arrow-up"), title = "Move up"),
         shiny::actionButton(ns("down"), NULL, icon = shiny::icon("arrow-down"), title = "Move down"),
-        shiny::actionButton(ns("toggle"), "Switch include on / off",
-                            icon = shiny::icon("toggle-on"),
-                            title = "Leave the selected rows out of the run, or bring them back"),
         shiny::actionButton(ns("remove"), "Remove", icon = shiny::icon("trash"))
       ),
       DT::DTOutput(ns("list")),
-      shiny::tags$div(
-        class = "ak-note",
-        shiny::tags$p(
-          shiny::tags$strong("What include means. "),
-          "TRUE: the variable is reported in this run. FALSE: the row stays in ",
-          "the list but is left out of the results - it is ", shiny::tags$em("parked"),
-          ". Use it for a disaggregation you need in some rounds and not ",
-          "others: switch it off instead of deleting it, and back on later ",
-          "without adding it again or retyping its name."
-        ),
-        shiny::tags$p(
-          "To change include, select rows and click Switch include on / off, or ",
-          "double-click the cell and type TRUE or FALSE. To delete a row for ",
-          "good, use Remove."
-        ),
-        shiny::tags$p(
-          shiny::tags$strong("new_name"),
-          " is the heading the results use for the variable. Double-click to ",
-          "change it: letters, numbers and underscores, and no name may contain ",
-          "another (Region and Region_of_origin clash)."
-        )
-      ),
       shiny::uiOutput(ns("problems"))
     )
   )
@@ -101,6 +76,15 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
     list_data <- shiny::reactive({
       df <- sheet()
       d <- dictionary()
+      # A blank include means included, as the reader treats it. An imported
+      # sheet without the column gets it at the end, so the positions of the
+      # columns before it - which cell edits rely on - do not move.
+      include <- if ("include" %in% names(df)) as.character(df$include) else rep(NA, nrow(df))
+      df$include <- ak_checkbox_cell(
+        seq_len(nrow(df)), "include",
+        is.na(include) | toupper(trimws(include)) != "FALSE"
+      )
+      df$new_name <- htmltools::htmlEscape(as.character(df$new_name))
       df$question_label <- if (nrow(df) == 0L || is.null(d)) {
         rep("", nrow(df))
       } else {
@@ -112,14 +96,27 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
     })
 
     ak_dt_bind(output, session, "list", list_data,
-               editable_columns = c("new_name", "include"), page_length = 25L,
-               ordering = FALSE,
+               editable_columns = "new_name", height = "480px",
+               ordering = FALSE, escape = FALSE,
+               callback = ak_cell_input_js(session$ns("cell")),
                descriptions = c(
                  raw_data_name = "The column in the dataset.",
-                 new_name = "Its heading in the results.",
-                 include = "TRUE: reported. FALSE: parked - kept here, left out of the run.",
+                 new_name = "Its heading in the results. Double-click to change.",
+                 include = "Ticked: reported. Unticked: kept here, left out of the run.",
                  question_label = "The question's label in the dataset."
                ))
+
+    shiny::observeEvent(input$cell, {
+      ev <- input$cell
+      df <- sheet()
+      row <- as.integer(ev$row)
+      if (!identical(ev$col, "include") || length(row) != 1L || is.na(row) ||
+          row < 1L || row > nrow(df)) {
+        return()
+      }
+      store$set("disaggregation_variables",
+                ak_set_cell(df, row, "include", if (isTRUE(ev$value)) "TRUE" else "FALSE"))
+    })
 
     shiny::observeEvent(input$list_cell_edit, {
       df <- sheet()
@@ -138,16 +135,6 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
     }
     shiny::observeEvent(input$up, move(-1))
     shiny::observeEvent(input$down, move(1))
-
-    shiny::observeEvent(input$toggle, {
-      rows <- selected()
-      if (length(rows) == 0L) return()
-      df <- sheet()
-      if (is.logical(df$include)) df$include <- as.character(df$include)
-      on <- is.na(df$include[rows]) | toupper(df$include[rows]) != "FALSE"
-      df$include[rows] <- ifelse(on, "FALSE", "TRUE")
-      store$set("disaggregation_variables", df)
-    })
 
     shiny::observeEvent(input$remove, {
       rows <- selected()

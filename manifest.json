@@ -3161,25 +3161,25 @@
   },
   "files": {
     "app.R": {
-      "checksum": "728e7ffbf28496ee3f6b7c370b0fbb47"
+      "checksum": "afa1e465a795b9a81a71f24bc23be0d5"
     },
     "R/deployment.R": {
       "checksum": "27e8477909a1dddc70772b945b08e62d"
     },
     "R/mod_analysis_vars.R": {
-      "checksum": "f079b978d9c9ffdef96ec7a0c2e0b313"
+      "checksum": "78f953d6c6aa80bf6b3ac9f0b5fbf8e4"
     },
     "R/mod_disaggregation.R": {
-      "checksum": "10957df09f6e311a25f180282816d5c2"
+      "checksum": "c746fefe3bf544af1ca3870ae6bddc20"
     },
     "R/mod_route.R": {
-      "checksum": "7495ed0af9e6a2b11247bc1eae1a5fbc"
+      "checksum": "b60ed7e10e5a56634d524de50f7bf0f9"
     },
     "R/server_checks.R": {
       "checksum": "5bbaed8849b54d9c230e3879b7ab6ae6"
     },
     "R/server_inputs.R": {
-      "checksum": "2dc51eba523a385b3df2a3f0378adfbb"
+      "checksum": "308e7983a40c46aeabc51bb21d17d89a"
     },
     "R/server_run.R": {
       "checksum": "c088bab15477c7bb6cbe81b662c04ede"
@@ -3188,10 +3188,13 @@
       "checksum": "84a46a4d141a3a7d3de52f7893247043"
     },
     "R/setup_state.R": {
-      "checksum": "4f1af1ebf3a87a6a68bbb29707ed4737"
+      "checksum": "8161826b2ae434c0c63067d549075218"
     },
     "R/setup_store.R": {
-      "checksum": "919a45e80059915e15a8d639f6d6ef7e"
+      "checksum": "8ed1decfadf60f62cefcac4d3a8c3eea"
+    },
+    "R/survey_types.R": {
+      "checksum": "bea52a72befb05a4ad517fdceb628535"
     },
     "R/ui_components.R": {
       "checksum": "68f7a0745ca966d62cdded799a13fe8d"
@@ -3200,7 +3203,7 @@
       "checksum": "ecfbb0ed4014f6f6f73297931e3e0d82"
     },
     "www/styles.css": {
-      "checksum": "41a202af690a4c2c84cae08ee58ff4ec"
+      "checksum": "8166fbb12a8330bc9b11e94f6d1f1572"
     }
   },
   "users": null

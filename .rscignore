@@ -25,3 +25,5 @@ R/manifest.R
 R/generate_manifest.R
 generate_manifest.R
 manifest.json
+# Development scripts (tools/build_survey_types.R); the app uses what they generate.
+tools

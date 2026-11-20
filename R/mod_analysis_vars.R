@@ -40,10 +40,10 @@ ak_analysis_column_help <- function() {
   c(
     analysis_type = "How the question is summarised: % per choice, or the mean or median of a number.",
     analysis_var = "The column in the dataset.",
-    question = "The question's label in the dataset.",
     theme = "Groups analyses into sheets of the results workbook. Blank: the 'analysis' sheet.",
     full_sample_base = "Ticked: % out of everyone, those not asked included. Unticked: out of those who answered.",
-    full_sample_label = "Row label for those not asked, when ticked. Blank: Not asked / no response."
+    full_sample_label = "Row label for those not asked, when ticked. Blank: Not asked / no response.",
+    question = "The question's label in the dataset."
   )
 }
 
@@ -116,10 +116,10 @@ ak_analysis_list_view <- function(df, dictionary) {
   data.frame(
     analysis_type = type_cell,
     analysis_var = esc(var),
-    question = esc(ak_truncate(label, 70L)),
     theme = text_cell("sector", get("sector"), "analysis"),
     full_sample_base = full_cell,
     full_sample_label = label_cell,
+    question = esc(ak_truncate(label, 70L)),
     stringsAsFactors = FALSE
   )
 }
@@ -258,7 +258,7 @@ mod_analysis_vars_server <- function(id, store, dictionary, problems) {
       shiny::tagList()
     })
 
-    ak_dt_bind(output, session, "browser", browser_data, page_length = 10L)
+    ak_dt_bind(output, session, "browser", browser_data, height = "360px")
 
     shiny::observeEvent(input$add, {
       d <- dictionary()
@@ -299,21 +299,9 @@ mod_analysis_vars_server <- function(id, store, dictionary, problems) {
     list_data <- shiny::reactive(ak_analysis_list_view(sheet(), dictionary()))
 
     # Every control in the table reports the sheet row and column it edits.
-    cell_js <- DT::JS(sprintf(
-      "table.on('change', '.ak-cell-input', function() {
-         var el = this;
-         Shiny.setInputValue('%s', {
-           row: parseInt(el.getAttribute('data-row'), 10),
-           col: el.getAttribute('data-col'),
-           value: el.type === 'checkbox' ? el.checked : el.value
-         }, {priority: 'event'});
-       });",
-      ns("cell")
-    ))
-
-    ak_dt_bind(output, session, "list", list_data, page_length = 25L,
+    ak_dt_bind(output, session, "list", list_data, height = "480px",
                descriptions = ak_analysis_column_help(), escape = FALSE,
-               callback = cell_js, ordering = FALSE)
+               callback = ak_cell_input_js(ns("cell")), ordering = FALSE)
 
     shiny::observeEvent(input$cell, {
       ev <- input$cell

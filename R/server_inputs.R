@@ -49,22 +49,6 @@ ak_dataset_server <- function(input, output, session) {
     dataset_overview(result)
   })
 
-  output$dataset_columns <- ak_table({
-    result <- data()
-    shiny::validate(shiny::need(!inherits(result, "dataset_error"), result$message))
-    dataset_columns(result)
-  })
-
-  output$dataset_preview <- ak_table(
-    {
-      result <- data()
-      shiny::validate(shiny::need(!inherits(result, "dataset_error"), result$message))
-      utils::head(result$data, 10L)
-    },
-    spacing = "xs",
-    rownames = TRUE
-  )
-
   list(state = state, data = data, ok = ok)
 }
 

@@ -255,21 +255,26 @@ ak_free_text_variables <- function() c("Q156", "Q157")
 #' column; its choices are the suffixes of its child columns, which is exactly
 #' what the combination sheets must match.
 #'
-#' The type is inferred from the export and is only a suggestion: a numeric
-#' column with four distinct values may well be a coded select_one.
+#' A question in the 4Mi questionnaire takes its type from there
+#' (ak_survey_types(), generated from the XLSForm). Any other question has its
+#' type inferred from the export, which is only a suggestion: a numeric column
+#' with four distinct values may well be a coded select_one.
 #'
 #' @param data The dataset, with the label row as row 1 when `skip_label_row`.
 #' @param sm_separator Separator between a select_multiple parent and choice.
 #' @param skip_label_row Logical. Row 1 holds the question labels.
 #' @param max_choices Above this many distinct text values a column is treated
 #'   as free text rather than a select_one.
+#' @param known_types Named character vector of question types that win over
+#'   inference; names are question codes.
 #' @return A data frame with `variable`, `label`, `type`, `n_choices`,
 #'   `choices` (a list column), `answered` (share of rows with a value) and
 #'   `columns` (a list column of the dataset columns it covers).
 ak_dataset_dictionary <- function(data,
                                   sm_separator = "/",
                                   skip_label_row = TRUE,
-                                  max_choices = 60L) {
+                                  max_choices = 60L,
+                                  known_types = ak_survey_types()) {
   empty <- data.frame(
     variable = character(0), label = character(0), type = character(0),
     n_choices = integer(0), answered = numeric(0), stringsAsFactors = FALSE
@@ -277,6 +282,7 @@ ak_dataset_dictionary <- function(data,
   empty$choices <- list()
   empty$columns <- list()
   if (is.null(data) || ncol(data) == 0L) return(empty)
+  known_types <- known_types %||% character(0)
 
   nms <- names(data)
   labels <- if (isTRUE(skip_label_row) && nrow(data) > 0L) {
@@ -319,11 +325,14 @@ ak_dataset_dictionary <- function(data,
         mean(Reduce(`|`, lapply(body[kids], has_value)))
       }
       label <- if (variable %in% nms) labels[[variable]] else NA_character_
-      free_text <- ak_is_free_text(variable, label)
+      type <- unname(known_types[variable])
+      if (is.na(type)) {
+        type <- if (ak_is_free_text(variable, label)) "text" else "select_multiple"
+      }
       rows[[length(rows) + 1L]] <- list(
-        variable = variable, label = label,
-        type = if (free_text) "text" else "select_multiple",
-        choices = if (free_text) character(0) else choices, answered = answered,
+        variable = variable, label = label, type = type,
+        choices = if (type == "select_multiple") choices else character(0),
+        answered = answered,
         columns = c(intersect(variable, nms), kids)
       )
       next
@@ -345,6 +354,9 @@ ak_dataset_dictionary <- function(data,
       "text"
     }
     if (type != "empty" && ak_is_free_text(variable, labels[[nm]])) type <- "text"
+    # The questionnaire knows better than the export.
+    known <- unname(known_types[variable])
+    if (!is.na(known)) type <- known
     choices <- if (type == "select_one") sort(unique(values)) else character(0)
 
     rows[[length(rows) + 1L]] <- list(

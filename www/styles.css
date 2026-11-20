@@ -137,7 +137,15 @@ a:focus {
 
 .table-scroll {
   max-width: 100%;
-  overflow-x: auto;
+  max-height: 420px;
+  overflow: auto;
+}
+
+/* The heading row stays in view while a long table scrolls. */
+.table-scroll > table > thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .table > thead > tr > th {
