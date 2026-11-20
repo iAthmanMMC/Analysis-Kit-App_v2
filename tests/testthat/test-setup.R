@@ -227,11 +227,16 @@ test_that("an analysis set up on screen is checked and runs without a workbook",
 
     session$setInputs(folder = pick_folder(destination_dir))
     expect_true(ak_can_run(step_states()))
+    expect_no_match(ui_text(output$run_control), "Download results")
     session$setInputs(run = 1)
 
     expect_null(run_error())
     expect_false(is.null(analysis_results()))
     expect_true(file.exists(saved_path()))
+    # The download beside the run button serves the same workbook.
+    expect_match(ui_text(output$run_control), "Download results")
+    expect_identical(unname(tools::md5sum(output$results_file_sidebar)),
+                     unname(tools::md5sum(saved_path())))
     # No theme: one sheet named "analysis"; the dataset is in by default.
     sheets <- readxl::excel_sheets(saved_path())
     expect_true("analysis" %in% sheets)
@@ -440,5 +445,22 @@ test_that("typing a disaggregation name sets it, and clearing it restores the su
 
     session$setInputs(`groups-cell` = list(row = 1, col = "new_name", value = ""))
     expect_equal(setup$sheet("disaggregation_variables")$new_name, suggested)
+  })
+})
+
+test_that("disaggregations are picked one at a time, can be taken back, and are added together", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    session$setInputs(`groups-pick` = "Q31")
+    session$setInputs(`groups-pick` = "Q27")
+    session$setInputs(`groups-pick` = "Q31")
+    session$setInputs(`groups-unpick` = "Q27")
+    expect_equal(nrow(setup$sheet("disaggregation_variables")), 0L)
+
+    session$setInputs(`groups-add` = 1)
+    expect_equal(setup$sheet("disaggregation_variables")$raw_data_name, "Q31")
+    expect_equal(setup$sheet("disaggregation_variables")$include, "TRUE")
   })
 })

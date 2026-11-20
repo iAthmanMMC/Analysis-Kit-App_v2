@@ -56,16 +56,24 @@ mod_disaggregation_ui <- function(id) {
         "variables, one column block per variable in this order. Overall is ",
         "always included first and is not listed here."
       ),
-      shiny::fluidRow(
-        shiny::column(
-          9,
+      # Pick one variable at a time; each lands as a chip in the middle, with
+      # an x to take it back, until Add puts them all in the list.
+      shiny::tags$div(
+        class = "ak-pick-row",
+        shiny::tags$div(
+          class = "ak-pick-search",
           shiny::selectizeInput(
-            ns("pick"), "Variables to add", choices = NULL, multiple = TRUE,
+            ns("pick"), "Variable to add", choices = NULL,
             options = list(placeholder = "Search by code or question")
           )
         ),
-        shiny::column(
-          3,
+        shiny::tags$div(
+          class = "ak-pick-chosen",
+          shiny::tags$label(class = "control-label", "Selected"),
+          shiny::uiOutput(ns("pending"))
+        ),
+        shiny::tags$div(
+          class = "ak-pick-add",
           shiny::tags$label(class = "control-label", shiny::HTML("&nbsp;")),
           shiny::actionButton(ns("add"), "Add", class = "btn-primary btn-block",
                               icon = shiny::icon("plus"))
@@ -89,22 +97,69 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
   shiny::moduleServer(id, function(input, output, session) {
     sheet <- shiny::reactive(store$sheet("disaggregation_variables"))
 
+    # Variables picked but not yet added, in the order they were picked.
+    pending <- shiny::reactiveVal(character(0))
+
     shiny::observe({
       d <- dictionary()
-      used <- sheet()$raw_data_name
+      taken <- c(sheet()$raw_data_name, pending())
       choices <- if (is.null(d)) character(0) else {
         # Single-choice questions are what disaggregations normally are, so
         # they are listed first.
         d <- d[order(d$type != "select_one", seq_len(nrow(d))), , drop = FALSE]
-        d <- d[d$type %in% c("select_one", "numeric", "text") & !d$variable %in% used, , drop = FALSE]
+        d <- d[d$type %in% c("select_one", "numeric", "text") & !d$variable %in% taken, , drop = FALSE]
         ak_variable_choices(d)
       }
-      shiny::updateSelectizeInput(session, "pick", choices = choices, server = TRUE)
+      shiny::updateSelectizeInput(session, "pick", choices = c("", choices),
+                                  selected = "", server = TRUE)
+    })
+
+    shiny::observeEvent(input$pick, {
+      picked <- input$pick
+      if (!nzchar(picked %||% "")) return()
+      pending(unique(c(pending(), picked)))
+    })
+
+    shiny::observeEvent(input$unpick, {
+      pending(setdiff(pending(), input$unpick))
+    })
+
+    output$pending <- shiny::renderUI({
+      picked <- pending()
+      if (length(picked) == 0L) {
+        return(shiny::tags$div(class = "ak-pick-empty", "Nothing selected yet"))
+      }
+      d <- shiny::isolate(dictionary())
+      labels <- if (is.null(d)) rep(NA, length(picked)) else d$label[match(picked, d$variable)]
+      shiny::tags$div(
+        class = "ak-pick-chips",
+        lapply(seq_along(picked), function(i) {
+          shiny::tags$span(
+            class = "ak-chip ak-chip-pending",
+            title = if (!is.na(labels[i])) labels[i],
+            shiny::tags$strong(picked[i]),
+            if (!is.na(labels[i])) shiny::tags$span(class = "ak-chip-label", ak_truncate(labels[i], 32L)),
+            shiny::tags$button(
+              type = "button", class = "ak-chip-x",
+              `aria-label` = paste("Remove", picked[i]),
+              onclick = sprintf(
+                "Shiny.setInputValue('%s', '%s', {priority: 'event'})",
+                session$ns("unpick"), picked[i]
+              ),
+              shiny::HTML("&times;")
+            )
+          )
+        })
+      )
     })
 
     shiny::observeEvent(input$add, {
-      picked <- input$pick
-      if (length(picked) == 0L) return()
+      picked <- pending()
+      if (length(picked) == 0L) {
+        shiny::showNotification("Pick at least one variable first.", type = "warning")
+        return()
+      }
+      pending(character(0))
       d <- dictionary()
       labels <- d$label[match(picked, d$variable)]
       new_names <- mapply(ak_suggest_new_name, picked, labels, USE.NAMES = FALSE)
@@ -114,7 +169,6 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
       rows <- data.frame(raw_data_name = picked, new_name = new_names,
                          include = "TRUE", stringsAsFactors = FALSE)
       store$set("disaggregation_variables", ak_bind_rows(sheet(), rows))
-      shiny::updateSelectizeInput(session, "pick", selected = character(0))
     })
 
     list_data <- shiny::reactive(ak_disaggregation_list_view(sheet(), dictionary()))
