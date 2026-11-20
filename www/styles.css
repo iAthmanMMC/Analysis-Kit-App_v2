@@ -1,0 +1,809 @@
+:root {
+  /* Mixed Migration Centre official colour palette */
+  --mmc-navy: #003d58;
+  --mmc-teal: #00a2a5;
+  --mmc-light-teal: #afdfe4;
+  --mmc-pale-teal: #d5eef0;
+  --mmc-yellow: #ffe07c;
+  --mmc-mauve: #b88aab;
+  --mmc-lime: #bbd876;
+  --mmc-orange: #fbbc75;
+  --mmc-coral: #f8ab9e;
+  --mmc-green: #5b9e62;
+  --mmc-blue: #009bd9;
+  --mmc-red: #f15b5b;
+  --mmc-plum: #63193b;
+}
+
+body {
+  color: var(--mmc-navy);
+  background-color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 20px 0 12px;
+  border-bottom: 4px solid var(--mmc-teal);
+}
+
+.app-logo {
+  display: block;
+  flex: 0 0 auto;
+  width: auto;
+  max-width: min(100%, 120px);
+  height: auto;
+}
+
+.app-header > h2 {
+  min-width: 0;
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.control-label {
+  color: var(--mmc-navy);
+}
+
+@media (max-width: 600px) {
+  .app-header {
+    gap: 12px;
+  }
+
+  .app-logo {
+    max-width: 90px;
+  }
+
+  .app-header > h2 {
+    font-size: 24px;
+  }
+}
+
+.well {
+  background-color: var(--mmc-pale-teal);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.btn-default,
+.btn-primary {
+  color: #fff;
+  background-color: var(--mmc-navy);
+  border-color: var(--mmc-navy);
+}
+
+.btn-default:hover,
+.btn-default:focus,
+.btn-default:active,
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  color: #fff;
+  background-color: var(--mmc-teal);
+  border-color: var(--mmc-teal);
+}
+
+.form-control:focus {
+  border-color: var(--mmc-teal);
+  box-shadow: 0 0 0 2px rgb(0 162 165 / 20%);
+}
+
+a {
+  color: var(--mmc-blue);
+}
+
+a:hover,
+a:focus {
+  color: var(--mmc-navy);
+}
+
+.status-message {
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  background-color: var(--mmc-pale-teal);
+  border-left: 4px solid var(--mmc-teal);
+  border-radius: 3px;
+}
+
+.status-success {
+  background-color: #eff7f0;
+  border-left-color: var(--mmc-green);
+}
+
+.status-error {
+  color: var(--mmc-plum);
+  background-color: #feeeee;
+  border-left-color: var(--mmc-red);
+}
+
+.dataset-section {
+  margin-bottom: 28px;
+}
+
+.dataset-section h3 {
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--mmc-light-teal);
+}
+
+.table-scroll {
+  max-width: 100%;
+  max-height: 420px;
+  overflow: auto;
+}
+
+/* The heading row stays in view while a long table scrolls. */
+.table-scroll > table > thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table > thead > tr > th {
+  color: #fff;
+  background-color: var(--mmc-navy);
+  border-bottom: 0;
+}
+
+/* Palette utility classes for app components added later. */
+.mmc-bg-navy {
+  background-color: var(--mmc-navy);
+}
+.mmc-bg-teal {
+  background-color: var(--mmc-teal);
+}
+.mmc-bg-light-teal {
+  background-color: var(--mmc-light-teal);
+}
+.mmc-bg-pale-teal {
+  background-color: var(--mmc-pale-teal);
+}
+.mmc-bg-yellow {
+  background-color: var(--mmc-yellow);
+}
+.mmc-bg-mauve {
+  background-color: var(--mmc-mauve);
+}
+.mmc-bg-lime {
+  background-color: var(--mmc-lime);
+}
+.mmc-bg-orange {
+  background-color: var(--mmc-orange);
+}
+.mmc-bg-coral {
+  background-color: var(--mmc-coral);
+}
+.mmc-bg-green {
+  background-color: var(--mmc-green);
+}
+.mmc-bg-blue {
+  background-color: var(--mmc-blue);
+}
+.mmc-bg-red {
+  background-color: var(--mmc-red);
+}
+.mmc-bg-plum {
+  background-color: var(--mmc-plum);
+}
+
+/* --------------------------------------------------------------------------
+   Workflow progress tracker
+   Shape and colour both carry the state, so the tracker stays readable
+   without relying on colour alone.
+   -------------------------------------------------------------------------- */
+.ak-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 4px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.ak-step {
+  display: flex;
+  flex: 1 1 140px;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 10px 12px;
+  background-color: #fff;
+  border: 1px solid var(--mmc-light-teal);
+  border-radius: 4px;
+}
+
+.ak-step-mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  background-color: var(--mmc-light-teal);
+  border-radius: 50%;
+}
+
+.ak-step-label {
+  overflow: hidden;
+  font-size: 14px;
+  color: var(--mmc-navy);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ak-step-todo {
+  background-color: #fbfdfd;
+}
+
+.ak-step-todo .ak-step-label {
+  opacity: 0.65;
+}
+
+.ak-step-active {
+  background-color: var(--mmc-pale-teal);
+  border-color: var(--mmc-teal);
+}
+
+.ak-step-active .ak-step-mark {
+  background-color: var(--mmc-teal);
+}
+
+.ak-step-done {
+  border-color: var(--mmc-green);
+}
+
+.ak-step-done .ak-step-mark {
+  background-color: var(--mmc-green);
+}
+
+.ak-step-warning {
+  border-color: var(--mmc-orange);
+}
+
+.ak-step-warning .ak-step-mark {
+  color: var(--mmc-navy);
+  background-color: var(--mmc-yellow);
+}
+
+.ak-step-error {
+  border-color: var(--mmc-red);
+}
+
+.ak-step-error .ak-step-mark {
+  background-color: var(--mmc-red);
+}
+
+.ak-step-error .ak-step-label {
+  color: var(--mmc-plum);
+}
+
+@media (max-width: 600px) {
+  .ak-step {
+    flex: 1 1 100%;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Check summary badges
+   -------------------------------------------------------------------------- */
+.ak-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ak-badge {
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+.ak-badge-ok {
+  color: #fff;
+  background-color: var(--mmc-green);
+}
+
+.ak-badge-error {
+  color: #fff;
+  background-color: var(--mmc-red);
+}
+
+.ak-badge-warning {
+  color: var(--mmc-navy);
+  background-color: var(--mmc-yellow);
+}
+
+/* --------------------------------------------------------------------------
+   Additional status tone and disabled controls
+   -------------------------------------------------------------------------- */
+.status-warning {
+  background-color: #fffaeb;
+  border-left-color: var(--mmc-orange);
+}
+
+.btn-primary[disabled],
+.btn-default[disabled] {
+  cursor: not-allowed;
+  background-color: var(--mmc-light-teal);
+  border-color: var(--mmc-light-teal);
+  opacity: 1;
+}
+
+.sidebar .status-message,
+.well .status-message {
+  margin-top: 12px;
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+/* Shiny's progress panel, in MMC colours. */
+.shiny-notification {
+  color: var(--mmc-navy);
+  background-color: #fff;
+  border: 1px solid var(--mmc-teal);
+  border-radius: 4px;
+}
+
+.progress-bar {
+  background-color: var(--mmc-teal);
+}
+
+/* Panel tabs */
+.nav-tabs > li > a {
+  color: var(--mmc-navy);
+}
+
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:hover,
+.nav-tabs > li.active > a:focus {
+  color: var(--mmc-navy);
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -3px 0 var(--mmc-teal);
+}
+
+/* Validation messages carry long identifiers (stat_<group>_<value>), which
+   would otherwise force the table wider than a phone screen. */
+.ak-problems table {
+  width: 100%;
+}
+
+/* Only the message column breaks inside a word. Applied to the whole table it
+   shredded "analysis row 3" one character per line on a narrow screen. */
+.ak-problems th:last-child,
+.ak-problems td:last-child {
+  overflow-wrap: anywhere;
+}
+
+.ak-problems th:nth-child(-n + 2),
+.ak-problems td:nth-child(-n + 2) {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Destination folder and run log
+   -------------------------------------------------------------------------- */
+.ak-destination {
+  margin-bottom: 16px;
+}
+
+.ak-destination .control-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.ak-log {
+  max-height: 320px;
+  margin: 0;
+  padding: 12px 12px 12px 28px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  background-color: var(--mmc-pale-teal);
+  border-left: 4px solid var(--mmc-teal);
+  border-radius: 3px;
+}
+
+.ak-log li {
+  overflow-wrap: anywhere;
+}
+
+.ak-log li + li {
+  margin-top: 4px;
+}
+
+.ak-log-warning {
+  font-weight: 700;
+  color: var(--mmc-plum);
+}
+
+/* Shiny's progress panel. Bootstrap puts a screen-reader-only "2% Complete"
+   span inside the bar; if a stylesheet disturbs .sr-only it becomes a stray
+   number sitting next to the message, so it is pinned out of sight here. */
+/* The width belongs on the panel that positions the notifications, not on each
+   notification: setting it here made the content wider than its container and
+   pushed the message off the right edge of the screen. */
+#shiny-notification-panel {
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+}
+
+.shiny-notification {
+  /* Shiny ships these translucent (opacity .85), so whatever the panel covers
+     shows through it - table figures behind the bar read as part of the
+     message. Progress needs to be legible more than it needs to be subtle. */
+  width: auto;
+  opacity: 1;
+}
+
+.shiny-notification .progress {
+  /* font-size: 0 rather than a rule aimed at .sr-only: the track carries no
+     text of its own, and Bootstrap's "n% Complete" label was showing through
+     it as a stray number beside the message. */
+  height: 10px;
+  margin-bottom: 10px;
+  font-size: 0;
+  background-color: var(--mmc-pale-teal);
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.shiny-notification .progress-text {
+  font-size: 13px;
+}
+
+.shiny-notification .progress-message {
+  font-weight: 700;
+}
+
+.shiny-notification .progress-detail {
+  display: block;
+  margin-top: 4px;
+  color: var(--mmc-navy);
+}
+
+/* --------------------------------------------------------------------------
+   Template link and result download
+   -------------------------------------------------------------------------- */
+.ak-template {
+  margin: -8px 0 18px;
+  font-size: 13px;
+}
+
+.ak-download {
+  margin-bottom: 14px;
+}
+
+/* The exclusive-combination caveat: a list inside a status message. */
+.ak-caveat {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.ak-caveat li + li {
+  margin-top: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Analysis setup tabs
+   -------------------------------------------------------------------------- */
+.tab-content {
+  padding-top: 18px;
+}
+
+.ak-help {
+  margin: -4px 0 12px;
+  color: #4a6b7c;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ak-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.ak-toolbar .btn-link {
+  color: var(--mmc-blue);
+  background: none;
+  border-color: transparent;
+}
+
+.ak-import .form-group {
+  margin-bottom: 10px;
+}
+
+.ak-sep {
+  margin: 0 6px;
+  color: #7a98a6;
+}
+
+/* Collapsible groups: settings and the "more" panel under the analysis list */
+.ak-details {
+  margin: 12px 0;
+  padding: 0 14px;
+  border: 1px solid var(--mmc-light-teal);
+  border-radius: 4px;
+}
+
+.ak-details[open] {
+  padding-bottom: 10px;
+}
+
+.ak-details > summary {
+  margin: 0 -14px;
+  padding: 10px 14px;
+  color: var(--mmc-navy);
+  font-weight: 700;
+  cursor: pointer;
+  background-color: var(--mmc-pale-teal);
+}
+
+.ak-details[open] > summary {
+  margin-bottom: 12px;
+}
+
+.ak-details > summary .shiny-text-output {
+  color: var(--mmc-teal);
+  font-weight: 400;
+}
+
+.ak-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 4px 24px;
+}
+
+.ak-setting .checkbox {
+  margin-top: 24px;
+}
+
+.ak-setting-help {
+  margin-top: -10px;
+  font-size: 12px;
+}
+
+.ak-setting code {
+  padding: 0;
+  color: var(--mmc-navy);
+  background: none;
+  font-weight: 700;
+}
+
+/* Overall: always the first disaggregation, shown but not editable */
+.ak-chip-row {
+  margin: 4px 0 6px;
+}
+
+.ak-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ak-chip-fixed {
+  color: #fff;
+  background-color: var(--mmc-navy);
+}
+
+.ak-route-blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ak-route-block {
+  padding: 10px 14px;
+  border: 1px solid var(--mmc-light-teal);
+  border-radius: 4px;
+}
+
+.ak-route-block .status-message {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.ak-tab-problems {
+  margin-top: 16px;
+}
+
+/* DT tables in the house colours */
+table.dataTable.ak-dt thead th {
+  color: #fff;
+  background-color: var(--mmc-navy);
+  border-bottom: 0;
+}
+
+table.dataTable.ak-dt tbody tr.selected > * {
+  color: var(--mmc-navy) !important;
+  box-shadow: inset 0 0 0 9999px var(--mmc-light-teal) !important;
+}
+
+table.dataTable.ak-dt td {
+  font-size: 13px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  color: #fff !important;
+  background: var(--mmc-teal) !important;
+  border-color: var(--mmc-teal) !important;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+  border-color: var(--mmc-teal);
+  outline: none;
+}
+
+/* The row of column descriptions under a table's headings */
+table.dataTable.ak-dt thead tr.ak-col-help th {
+  color: var(--mmc-navy);
+  background-color: var(--mmc-pale-teal);
+  font-size: 11.5px;
+  font-weight: normal;
+  line-height: 1.35;
+  white-space: normal;
+  vertical-align: top;
+  min-width: 140px;
+}
+
+/* Controls inside table cells */
+table.dataTable.ak-dt td .ak-cell-input.form-control {
+  height: 28px;
+  padding: 2px 6px;
+  font-size: 13px;
+  min-width: 130px;
+}
+
+table.dataTable.ak-dt td input[type="checkbox"].ak-cell-input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--mmc-teal);
+}
+
+/* A boxed explanation under a table */
+.ak-note {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--mmc-teal);
+  background-color: var(--mmc-pale-teal);
+  color: var(--mmc-navy);
+  font-size: 13px;
+}
+
+.ak-note p {
+  margin: 0 0 6px;
+}
+
+.ak-note p:last-child {
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   The main tabs as numbered steps
+   A pale-teal band; each tab carries a numbered circle, which turns yellow
+   when its part has a warning and becomes a red cross when it has a problem.
+   The active tab is filled navy.
+   -------------------------------------------------------------------------- */
+#panels.nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 6px 6px 0;
+  background-color: var(--mmc-pale-teal);
+  border-bottom: 3px solid var(--mmc-navy);
+  border-radius: 6px 6px 0 0;
+  counter-reset: ak-tab;
+}
+
+#panels.nav-tabs > li {
+  float: none;
+  margin-bottom: 0;
+}
+
+#panels.nav-tabs > li > a {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-right: 0;
+  padding: 9px 14px;
+  font-weight: 600;
+  color: var(--mmc-navy);
+  background-color: #fff;
+  border: 1px solid var(--mmc-light-teal);
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  box-shadow: none;
+}
+
+#panels.nav-tabs > li > a::before {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--mmc-teal);
+  background-color: #fff;
+  border: 2px solid var(--mmc-teal);
+  border-radius: 50%;
+  counter-increment: ak-tab;
+  content: counter(ak-tab);
+}
+
+#panels.nav-tabs > li > a:hover,
+#panels.nav-tabs > li > a:focus {
+  background-color: var(--mmc-light-teal);
+  border-color: var(--mmc-teal);
+}
+
+#panels.nav-tabs > li.active > a,
+#panels.nav-tabs > li.active > a:hover,
+#panels.nav-tabs > li.active > a:focus {
+  color: #fff;
+  background-color: var(--mmc-navy);
+  border-color: var(--mmc-navy);
+  box-shadow: none;
+}
+
+#panels.nav-tabs > li.active > a::before {
+  color: var(--mmc-navy);
+  background-color: #fff;
+  border-color: #fff;
+}
+
+/* States set by the server (ak-tab-states in app.R). A finished tab keeps
+   its plain number; only a warning (yellow, still numbered) or an error (a
+   red cross) changes the mark. */
+#panels.nav-tabs > li.ak-tab-warning > a::before {
+  color: var(--mmc-navy);
+  background-color: var(--mmc-yellow);
+  border-color: var(--mmc-orange);
+}
+
+#panels.nav-tabs > li.ak-tab-error > a::before {
+  color: #fff;
+  background-color: var(--mmc-red);
+  border-color: var(--mmc-red);
+  content: "\00D7";
+}
+
+/* The "Next" link at the foot of each setup tab */
+.ak-next {
+  display: flex;
+  justify-content: flex-end;
+  margin: 24px 0 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mmc-light-teal);
+}
+
+.ak-next .btn {
+  font-weight: 600;
+}
