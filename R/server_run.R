@@ -27,7 +27,14 @@ ak_run_server <- function(input, output, session, ctx) {
       if (ctx$running()) "Running..." else "Run analyses",
       class = "btn-primary"
     )
-    if (ready) button else shiny::tagAppendAttributes(button, disabled = NA)
+    if (!ready) button <- shiny::tagAppendAttributes(button, disabled = NA)
+    # Once a run has saved a workbook, its download sits right beside the run
+    # button, where it is seen; the Results tab keeps its own as well.
+    download <- if (!is.null(ctx$saved_path()) && !ctx$running()) {
+      shiny::downloadButton("results_file_sidebar", "Download results",
+                            class = "btn-primary ak-download-side")
+    }
+    shiny::tags$div(class = "ak-run-row", button, download)
   })
 
   output$run_hint <- shiny::renderUI({
@@ -286,10 +293,13 @@ ak_run_server <- function(input, output, session, ctx) {
     }
   )
 
-  output$results_file <- shiny::downloadHandler(
+  # The same file behind both download buttons; Shiny needs one handler per id.
+  results_download <- shiny::downloadHandler(
     filename = function() basename(ctx$saved_path()),
     content = function(file) file.copy(ctx$saved_path(), file, overwrite = TRUE)
   )
+  output$results_file <- results_download
+  output$results_file_sidebar <- results_download
 
   output$download_control <- shiny::renderUI({
     if (is.null(ctx$saved_path())) return(shiny::tagList())

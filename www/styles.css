@@ -807,3 +807,91 @@ table.dataTable.ak-dt td input[type="checkbox"].ak-cell-input {
 .ak-next .btn {
   font-weight: 600;
 }
+
+/* Disaggregations: search, the picked variables, Add - in one row */
+.ak-pick-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ak-pick-search {
+  flex: 1 1 200px;
+}
+
+.ak-pick-chosen {
+  flex: 2 1 220px;
+  margin-bottom: 15px;
+}
+
+.ak-pick-add {
+  flex: 0 0 110px;
+}
+
+.ak-pick-chips,
+.ak-pick-empty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-height: 34px;
+  padding: 4px 8px;
+  background-color: #fff;
+  border: 1px dashed var(--mmc-light-teal);
+  border-radius: 4px;
+}
+
+.ak-pick-empty {
+  font-size: 13px;
+  color: var(--mmc-navy);
+  opacity: 0.55;
+}
+
+.ak-chip-pending {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--mmc-navy);
+  background-color: var(--mmc-light-teal);
+}
+
+.ak-chip-x {
+  padding: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--mmc-navy);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.ak-chip-x:hover,
+.ak-chip-x:focus {
+  color: var(--mmc-red);
+}
+
+.ak-chip-pending .ak-chip-label {
+  font-weight: normal;
+}
+
+/* Run, and once a run has saved a workbook, its download beside it */
+.ak-run-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-primary.ak-download-side,
+.btn-primary.ak-download-side:focus {
+  background-color: var(--mmc-teal);
+  border-color: var(--mmc-teal);
+}
+
+.btn-primary.ak-download-side:hover,
+.btn-primary.ak-download-side:active {
+  background-color: var(--mmc-navy);
+  border-color: var(--mmc-navy);
+}
