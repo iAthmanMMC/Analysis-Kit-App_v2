@@ -2,6 +2,50 @@
 # Tab: Disaggregations  (sheet disaggregation_variables)
 # =============================================================================
 
+#' The Suggested Output Name of Each Disaggregation Variable
+#' @param raw Question codes.
+#' @param dictionary From ak_dataset_dictionary(), or `NULL`.
+#' @return A character vector.
+ak_disaggregation_suggestions <- function(raw, dictionary) {
+  labels <- if (is.null(dictionary)) rep(NA_character_, length(raw)) else {
+    dictionary$label[match(raw, dictionary$variable)]
+  }
+  as.character(mapply(ak_suggest_new_name, raw, labels, USE.NAMES = FALSE))
+}
+
+
+#' The Disaggregations Table as Shown, With Its Cell Controls
+#'
+#' new_name is a text box whose placeholder is the suggested name. A row
+#' still holding the suggestion shows an empty box, so the placeholder is what
+#' is used; a name typed over it shows as typed. A blank include means
+#' included, as the reader treats it.
+#'
+#' @param df The disaggregation_variables sheet.
+#' @param dictionary From ak_dataset_dictionary(), or `NULL`.
+#' @return A data frame of HTML strings.
+ak_disaggregation_list_view <- function(df, dictionary) {
+  n <- nrow(df)
+  rows <- seq_len(n)
+  raw <- as.character(df$raw_data_name)
+  name <- as.character(df$new_name)
+  name[is.na(name)] <- ""
+  suggested <- ak_disaggregation_suggestions(raw, dictionary)
+  include <- if ("include" %in% names(df)) as.character(df$include) else rep(NA, n)
+  label <- if (is.null(dictionary)) rep("", n) else dictionary$label[match(raw, dictionary$variable)]
+  label[is.na(label)] <- ""
+
+  data.frame(
+    raw_data_name = htmltools::htmlEscape(raw),
+    new_name = ak_text_cell(rows, "new_name", ifelse(name == suggested, "", name), suggested),
+    include = ak_checkbox_cell(rows, "include",
+                               is.na(include) | toupper(trimws(include)) != "FALSE"),
+    question_label = htmltools::htmlEscape(ak_truncate(label, 60L)),
+    stringsAsFactors = FALSE
+  )
+}
+
+
 mod_disaggregation_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
@@ -73,35 +117,14 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
       shiny::updateSelectizeInput(session, "pick", selected = character(0))
     })
 
-    list_data <- shiny::reactive({
-      df <- sheet()
-      d <- dictionary()
-      # A blank include means included, as the reader treats it. An imported
-      # sheet without the column gets it at the end, so the positions of the
-      # columns before it - which cell edits rely on - do not move.
-      include <- if ("include" %in% names(df)) as.character(df$include) else rep(NA, nrow(df))
-      df$include <- ak_checkbox_cell(
-        seq_len(nrow(df)), "include",
-        is.na(include) | toupper(trimws(include)) != "FALSE"
-      )
-      df$new_name <- htmltools::htmlEscape(as.character(df$new_name))
-      df$question_label <- if (nrow(df) == 0L || is.null(d)) {
-        rep("", nrow(df))
-      } else {
-        lab <- d$label[match(df$raw_data_name, d$variable)]
-        lab[is.na(lab)] <- ""
-        ak_truncate(lab, 60L)
-      }
-      df
-    })
+    list_data <- shiny::reactive(ak_disaggregation_list_view(sheet(), dictionary()))
 
-    ak_dt_bind(output, session, "list", list_data,
-               editable_columns = "new_name", height = "480px",
+    ak_dt_bind(output, session, "list", list_data, height = "480px",
                ordering = FALSE, escape = FALSE,
                callback = ak_cell_input_js(session$ns("cell")),
                descriptions = c(
                  raw_data_name = "The column in the dataset.",
-                 new_name = "Its heading in the results. Double-click to change.",
+                 new_name = "Its heading in the results. Left empty, the suggestion shown is used.",
                  include = "Ticked: reported. Unticked: kept here, left out of the run.",
                  question_label = "The question's label in the dataset."
                ))
@@ -110,19 +133,20 @@ mod_disaggregation_server <- function(id, store, dictionary, problems) {
       ev <- input$cell
       df <- sheet()
       row <- as.integer(ev$row)
-      if (!identical(ev$col, "include") || length(row) != 1L || is.na(row) ||
-          row < 1L || row > nrow(df)) {
+      if (length(row) != 1L || is.na(row) || row < 1L || row > nrow(df)) return()
+      if (identical(ev$col, "include")) {
+        df <- ak_set_cell(df, row, "include", if (isTRUE(ev$value)) "TRUE" else "FALSE")
+      } else if (identical(ev$col, "new_name")) {
+        typed <- trimws(as.character(ev$value %||% ""))
+        df <- ak_set_cell(df, row, "new_name", if (nzchar(typed)) {
+          typed
+        } else {
+          ak_disaggregation_suggestions(df$raw_data_name[row], dictionary())
+        })
+      } else {
         return()
       }
-      store$set("disaggregation_variables",
-                ak_set_cell(df, row, "include", if (isTRUE(ev$value)) "TRUE" else "FALSE"))
-    })
-
-    shiny::observeEvent(input$list_cell_edit, {
-      df <- sheet()
-      info <- input$list_cell_edit
-      info <- info[info$col + 1L <= ncol(df), , drop = FALSE]
-      store$set("disaggregation_variables", ak_apply_cell_edit(df, info))
+      store$set("disaggregation_variables", df)
     })
 
     selected <- shiny::reactive(input$list_rows_selected %||% integer(0))

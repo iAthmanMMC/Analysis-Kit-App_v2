@@ -135,3 +135,31 @@ test_that("the note is silent when a level is set but no interval is reported", 
   expect_equal(split$survey, 0L)
   expect_length(ak_engine_note(split), 0L)
 })
+
+test_that("each main tab is marked from what is set up and what the checks found", {
+  sheets <- ak_empty_sheets()
+  none <- ak_tab_states(FALSE, FALSE, sheets, NULL, FALSE)
+  expect_equal(unname(none), rep("todo", 6L))
+  expect_equal(names(none), c("Dataset", "Analysis variables", "Disaggregations",
+                              "Route analysis", "Checks", "Results"))
+
+  sheets$analysis_variables <- data.frame(analysis_type = "mean", analysis_var = "Q29")
+  sheets$route_analysis <- ak_set_setting(NULL, "places_stop", TRUE, "lgl", FALSE)
+  problems <- data.frame(sheet = "disaggregation_variables", severity = "error",
+                         row = 1L, message = "clash")
+  states <- ak_tab_states(TRUE, FALSE, sheets, problems, FALSE)
+  expect_equal(unname(states[c("Dataset", "Analysis variables", "Disaggregations",
+                               "Route analysis", "Checks")]),
+               c("done", "done", "error", "done", "error"))
+  expect_equal(ak_tab_states(FALSE, TRUE, sheets, NULL, FALSE)[["Dataset"]], "error")
+})
+
+test_that("the tab titles the states name are the app's tabs", {
+  skip_without_app()
+  # The states reach the browser keyed by tab title, so a renamed tab would
+  # silently lose its mark.
+  code <- paste(readLines(file.path(app_dir, "app.R")), collapse = " ")
+  for (tab in names(ak_tab_states(FALSE, FALSE, ak_empty_sheets(), NULL, FALSE))) {
+    expect_match(code, paste0('tabPanel[(][[:space:]]*"', tab, '"'))
+  }
+})

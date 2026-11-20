@@ -44,6 +44,16 @@ ui <- fluidPage(
   tags$script(HTML(
     "$(document).on('shown.bs.tab', function() {
        if ($.fn.dataTable) $.fn.dataTable.tables({visible: true, api: true}).columns.adjust();
+     });
+     // Marks each main tab done / warning / error; see ak_tab_states().
+     $(document).on('shiny:connected', function() {
+       Shiny.addCustomMessageHandler('ak-tab-states', function(states) {
+         $.each(states, function(tab, state) {
+           $('#panels a[data-value=\"' + tab + '\"]').parent()
+             .removeClass('ak-tab-todo ak-tab-done ak-tab-warning ak-tab-error')
+             .addClass('ak-tab-' + state);
+         });
+       });
      });"
   )),
   tags$header(
@@ -100,12 +110,16 @@ ui <- fluidPage(
                 "sheets. It is personal data: store and share the workbook accordingly."
               )
             ),
-            ak_section("Dataset overview", tableOutput("dataset_overview"))
+            ak_section("Dataset overview", tableOutput("dataset_overview")),
+            ak_next_step("Analysis variables")
           )
         ),
-        tabPanel("Analysis variables", mod_analysis_vars_ui("vars")),
-        tabPanel("Disaggregations", mod_disaggregation_ui("groups")),
-        tabPanel("Route analysis", mod_route_ui("route")),
+        tabPanel("Analysis variables", mod_analysis_vars_ui("vars"),
+                 ak_next_step("Disaggregations")),
+        tabPanel("Disaggregations", mod_disaggregation_ui("groups"),
+                 ak_next_step("Route analysis")),
+        tabPanel("Route analysis", mod_route_ui("route"),
+                 ak_next_step("Checks")),
         tabPanel(
           "Checks",
           uiOutput("loa_status"),
@@ -265,6 +279,15 @@ server <- function(input, output, session) {
       running = running()
     )
   })
+
+  tab_states <- reactive(ak_tab_states(
+    dataset_ok = dataset_ok(),
+    dataset_failed = !is.null(input$dataset) && !dataset_ok(),
+    sheets = setup$sheets(),
+    problems = tab_problems(),
+    results_ready = !is.null(analysis_results())
+  ))
+  observe(session$sendCustomMessage("ak-tab-states", as.list(tab_states())))
 
   output$progress_tracker <- renderUI(
     ak_step_tracker(step_states(), destination_mode$step_label)

@@ -202,6 +202,23 @@ ak_checkbox_cell <- function(rows, col, checked) {
 }
 
 
+#' A Text Box Cell for ak_cell_input_js()
+#' @param rows Sheet row numbers.
+#' @param col Sheet column name.
+#' @param values Current values ("" for none).
+#' @param placeholder Shown greyed when the box is empty; one or one per row.
+#' @param disabled Logical, one per row.
+#' @return HTML strings.
+ak_text_cell <- function(rows, col, values, placeholder = "", disabled = FALSE) {
+  esc <- htmltools::htmlEscape
+  sprintf(
+    '<input type="text" class="ak-cell-input form-control input-sm" data-row="%d" data-col="%s" value="%s" placeholder="%s"%s onclick="event.stopPropagation()">',
+    as.integer(rows), col, esc(values), esc(placeholder),
+    ifelse(rep_len(disabled, length(rows)), " disabled", "")
+  )
+}
+
+
 #' Apply a DT Cell Edit to a Data Frame
 #'
 #' @param df The data frame shown (with `rownames = FALSE`).

@@ -411,3 +411,34 @@ test_that("the include checkbox of a disaggregation parks and restores it", {
     expect_equal(analysis_spec()$group_variables, c("Overall", "Travelling_with_children"))
   })
 })
+
+test_that("a disaggregation's suggested name is the placeholder, and a typed one shows", {
+  d <- ak_dataset_dictionary(fixture_dataset(10))
+  suggested <- ak_disaggregation_suggestions(c("Q27", "Q31"), d)
+  df <- data.frame(raw_data_name = c("Q27", "Q31"), new_name = c(suggested[1], "Children"),
+                   include = "TRUE", stringsAsFactors = FALSE)
+  view <- ak_disaggregation_list_view(df, d)
+
+  expect_match(view$new_name[1], 'value=""', fixed = TRUE)
+  expect_match(view$new_name[1], sprintf('placeholder="%s"', suggested[1]), fixed = TRUE)
+  expect_match(view$new_name[2], 'value="Children"', fixed = TRUE)
+  expect_match(view$new_name[2], sprintf('placeholder="%s"', suggested[2]), fixed = TRUE)
+})
+
+test_that("typing a disaggregation name sets it, and clearing it restores the suggestion", {
+  skip_without_app()
+
+  shiny::testServer(app_dir, {
+    session$setInputs(dataset = upload(dataset_file()))
+    suggested <- ak_disaggregation_suggestions("Q31", dictionary())
+    setup$set("disaggregation_variables", data.frame(
+      raw_data_name = "Q31", new_name = suggested, include = "TRUE", stringsAsFactors = FALSE
+    ))
+
+    session$setInputs(`groups-cell` = list(row = 1, col = "new_name", value = " Children "))
+    expect_equal(setup$sheet("disaggregation_variables")$new_name, "Children")
+
+    session$setInputs(`groups-cell` = list(row = 1, col = "new_name", value = ""))
+    expect_equal(setup$sheet("disaggregation_variables")$new_name, suggested)
+  })
+})

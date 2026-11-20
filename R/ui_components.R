@@ -204,3 +204,63 @@ ak_section <- function(title, ...) {
     ...
   )
 }
+
+
+#' The State of Each Main Tab
+#'
+#' Drives the mark on each tab: `warning` (its number, in yellow), `error` (a red cross);
+#' `done` and `todo` both show its plain number. Pure, so it can be tested without a browser.
+#'
+#' @param dataset_ok,dataset_failed Logical: the dataset loaded / failed.
+#' @param sheets The setup sheets.
+#' @param problems The problems table, or `NULL` before anything is checked.
+#' @param results_ready Logical.
+#' @return A named character vector, one state per tab title.
+ak_tab_states <- function(dataset_ok, dataset_failed, sheets, problems, results_ready) {
+  sheet_state <- function(names, filled) {
+    hit <- if (is.null(problems)) problems else problems[problems$sheet %in% names, , drop = FALSE]
+    if (NROW(hit) && any(hit$severity == "error")) return("error")
+    if (NROW(hit) && any(hit$severity == "warning")) return("warning")
+    if (filled) "done" else "todo"
+  }
+  route <- sheets$route_analysis
+  route_on <- any(vapply(
+    c("transit_country", "places_stop", "dangerous_location"),
+    function(key) isTRUE(ak_setting_value(route, key, "lgl", FALSE)),
+    logical(1)
+  ))
+  counts <- if (is.null(problems)) c(error = 0L, warning = 0L) else ak_problem_counts(problems)
+
+  c(
+    "Dataset" = if (dataset_ok) "done" else if (dataset_failed) "error" else "todo",
+    "Analysis variables" = sheet_state("analysis_variables",
+                                       NROW(sheets$analysis_variables) > 0L),
+    "Disaggregations" = sheet_state("disaggregation_variables",
+                                    NROW(sheets$disaggregation_variables) > 0L),
+    "Route analysis" = sheet_state("route_analysis", route_on),
+    "Checks" = if (is.null(problems)) "todo" else if (counts[["error"]] > 0L) {
+      "error"
+    } else if (counts[["warning"]] > 0L) "warning" else "done",
+    "Results" = if (results_ready) "done" else "todo"
+  )
+}
+
+
+#' A Button at the Foot of a Tab That Opens the Next One
+#' @param tab The title of the next tab.
+#' @param label Button text.
+#' @return A Shiny tag.
+ak_next_step <- function(tab, label = paste("Next:", tab)) {
+  shiny::tags$div(
+    class = "ak-next",
+    shiny::tags$button(
+      type = "button",
+      class = "btn btn-primary",
+      onclick = sprintf(
+        "$('#panels a[data-value=\"%s\"]').tab('show'); window.scrollTo({top: $('#panels').offset().top - 12, behavior: 'smooth'});",
+        tab
+      ),
+      label, shiny::icon("arrow-right")
+    )
+  )
+}

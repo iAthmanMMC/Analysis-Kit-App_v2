@@ -701,3 +701,109 @@ table.dataTable.ak-dt td input[type="checkbox"].ak-cell-input {
 .ak-note p:last-child {
   margin-bottom: 0;
 }
+
+/* --------------------------------------------------------------------------
+   The main tabs as numbered steps
+   A pale-teal band; each tab carries a numbered circle, which turns yellow
+   when its part has a warning and becomes a red cross when it has a problem.
+   The active tab is filled navy.
+   -------------------------------------------------------------------------- */
+#panels.nav-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 6px 6px 0;
+  background-color: var(--mmc-pale-teal);
+  border-bottom: 3px solid var(--mmc-navy);
+  border-radius: 6px 6px 0 0;
+  counter-reset: ak-tab;
+}
+
+#panels.nav-tabs > li {
+  float: none;
+  margin-bottom: 0;
+}
+
+#panels.nav-tabs > li > a {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-right: 0;
+  padding: 9px 14px;
+  font-weight: 600;
+  color: var(--mmc-navy);
+  background-color: #fff;
+  border: 1px solid var(--mmc-light-teal);
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  box-shadow: none;
+}
+
+#panels.nav-tabs > li > a::before {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--mmc-teal);
+  background-color: #fff;
+  border: 2px solid var(--mmc-teal);
+  border-radius: 50%;
+  counter-increment: ak-tab;
+  content: counter(ak-tab);
+}
+
+#panels.nav-tabs > li > a:hover,
+#panels.nav-tabs > li > a:focus {
+  background-color: var(--mmc-light-teal);
+  border-color: var(--mmc-teal);
+}
+
+#panels.nav-tabs > li.active > a,
+#panels.nav-tabs > li.active > a:hover,
+#panels.nav-tabs > li.active > a:focus {
+  color: #fff;
+  background-color: var(--mmc-navy);
+  border-color: var(--mmc-navy);
+  box-shadow: none;
+}
+
+#panels.nav-tabs > li.active > a::before {
+  color: var(--mmc-navy);
+  background-color: #fff;
+  border-color: #fff;
+}
+
+/* States set by the server (ak-tab-states in app.R). A finished tab keeps
+   its plain number; only a warning (yellow, still numbered) or an error (a
+   red cross) changes the mark. */
+#panels.nav-tabs > li.ak-tab-warning > a::before {
+  color: var(--mmc-navy);
+  background-color: var(--mmc-yellow);
+  border-color: var(--mmc-orange);
+}
+
+#panels.nav-tabs > li.ak-tab-error > a::before {
+  color: #fff;
+  background-color: var(--mmc-red);
+  border-color: var(--mmc-red);
+  content: "\00D7";
+}
+
+/* The "Next" link at the foot of each setup tab */
+.ak-next {
+  display: flex;
+  justify-content: flex-end;
+  margin: 24px 0 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--mmc-light-teal);
+}
+
+.ak-next .btn {
+  font-weight: 600;
+}
